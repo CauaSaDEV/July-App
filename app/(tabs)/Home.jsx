@@ -6,6 +6,7 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { useState, useCallback } from "react";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -20,12 +21,12 @@ const ROLE_LABELS = {
 };
 
 export default function Home() {
-  const { user, loading: authLoading, error: authError, refetch: refetchAuth } = useAuth();
+  const { user, refetch: refetchAuth } = useAuth();
   const {
-    nextAppointments,
-    scheduledCount,
-    doneCount,
-    canceledCount,
+    nextAppointments = [],
+    scheduledCount = 0,
+    doneCount = 0,
+    canceledCount = 0,
     financeSummary,
     loading: dataLoading,
     error: dataError,
@@ -36,30 +37,15 @@ export default function Home() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchAuth(), refetchData()]);
+    await Promise.all([refetchAuth?.(), refetchData?.()]);
     setRefreshing(false);
   }, [refetchAuth, refetchData]);
 
-  const loading = authLoading || (dataLoading && !refreshing);
+  const firstName = user?.name?.split(" ")[0] ?? "Usuário";
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#CE9DBB" />
-      </View>
-    );
-  }
-
-  if (authError) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Não foi possível carregar seus dados. Faça login novamente.</Text>
-      </View>
-    );
-  }
-
-  const firstName = user?.name?.split(" ")[0] ?? "";
-  const isManager = user?.role === "MANAGER";
+  // Garante valores financeiros numéricos (R$ 0,00 se nulo)
+  const totalReceived = financeSummary?.totalReceived ?? 0;
+  const totalPending = financeSummary?.totalPending ?? 0;
 
   return (
     <ScrollView
@@ -67,18 +53,14 @@ export default function Home() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#CE9DBB" />}
     >
+      {/* BOAS-VINDAS */}
       <View style={styles.welcomeBox}>
         <Text style={styles.title}>Olá, {firstName}💅🏻!</Text>
-        <Text style={styles.subtitle}>Aqui vc pode acompanhar suas atividades e mensagens.</Text>
+        <Text style={styles.subtitle}>Aqui você pode acompanhar suas atividades e mensagens.</Text>
         {user?.role && <Text style={styles.roleTag}>{ROLE_LABELS[user.role] ?? user.role}</Text>}
       </View>
 
-      {dataError && (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>Não foi possível carregar todos os dados agora.</Text>
-        </View>
-      )}
-
+      {/* CARD 1: AGENDAMENTOS */}
       <View style={styles.cardContainer}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Agendados hoje</Text>
@@ -91,6 +73,19 @@ export default function Home() {
         </View>
       </View>
 
+      {/* CARD 2: FINANCEIRO (SEMPRE VISÍVEL) */}
+      <View style={styles.cardContainer}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Recebido no mês</Text>
+          <Text style={styles.cardData}>{formatCurrency(totalReceived)}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Pendente</Text>
+          <Text style={styles.cardData}>{formatCurrency(totalPending)}</Text>
+        </View>
+      </View>
+
+      {/* CARD DE CANCELADOS (SE HOUVER) */}
       {canceledCount > 0 && (
         <View style={styles.cardContainer}>
           <View style={[styles.card, styles.cardFull]}>
@@ -100,35 +95,27 @@ export default function Home() {
         </View>
       )}
 
-      {isManager && financeSummary && (
-        <View style={styles.cardContainer}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Recebido no mês</Text>
-            <Text style={styles.cardData}>{formatCurrency(financeSummary.totalReceived)}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Pendente</Text>
-            <Text style={styles.cardData}>{formatCurrency(financeSummary.totalPending)}</Text>
-          </View>
-        </View>
-      )}
-
+      {/* SEÇÃO: PRÓXIMOS AGENDAMENTOS */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Próximos agendamentos</Text>
 
-        {nextAppointments.length === 0 ? (
-          <Text style={styles.emptyText}>Nenhum agendamento pendente para hoje.</Text>
+        {dataLoading ? (
+          <ActivityIndicator size="small" color="#CE9DBB" style={{ marginTop: 10 }} />
+        ) : nextAppointments.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Nenhum agendamento pendente para hoje.</Text>
+          </View>
         ) : (
-          nextAppointments.map((appt) => (
-            <View key={appt.id} style={styles.appointmentRow}>
+          nextAppointments.map((appt, index) => (
+            <View key={appt.id ?? index} style={styles.appointmentRow}>
               <View style={styles.appointmentTimeBox}>
                 <Text style={styles.appointmentTime}>{formatTime(appt.startAt)}</Text>
               </View>
               <View style={styles.appointmentInfo}>
-                <Text style={styles.appointmentClient}>{appt.clientName}</Text>
+                <Text style={styles.appointmentClient}>{appt.clientName ?? "Cliente"}</Text>
                 <Text style={styles.appointmentDetail}>
                   {appt.serviceName ?? "Serviço não informado"}
-                  {isManager && appt.staffName ? ` · ${appt.staffName}` : ""}
+                  {appt.staffName ? ` · ${appt.staffName}` : ""}
                 </Text>
               </View>
             </View>
@@ -144,29 +131,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: width * 0.05,
     alignItems: "center",
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorText: {
-    color: "#9E7B92",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  warningBox: {
-    width: "100%",
-    maxWidth: 500,
-    backgroundColor: "#FFF4E5",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  warningText: {
-    color: "#8A6D3B",
-    fontSize: 13,
   },
   welcomeBox: {
     width: "100%",
@@ -217,14 +181,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
     color: "#CE9DBB",
     marginBottom: 5,
   },
   cardData: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#444",
   },
   section: {
     width: "100%",
@@ -236,6 +201,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#9E7B92",
     marginBottom: 12,
+  },
+  emptyCard: {
+    backgroundColor: "#fdfdfd",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 14,

@@ -10,61 +10,70 @@ import { getCurrentMonthRange } from "../utils/date";
  *
  * @param {string | undefined} role role do usuário autenticado (vem do useAuth)
  */
- export function useHomeData(role) {
-    const [appointments, setAppointments] = useState([]);
-    const [financeSummary, setFinanceSummary] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+export function useHomeData(role) {
+  const [appointments, setAppointments] = useState([]);
+  const [financeSummary, setFinanceSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const tasks = [getAppointments()];
+  const fetchData = useCallback(async () => {
+    console.log("[useHomeData] Disparando busca de dados (role atual:", role, ")");
+    setLoading(true);
+    setError(null);
 
-            if(role === "MANAGER"){
-                const { start, end } = getCurrentMonthRange();
-                tasks.push(getFinanceSummary(start, end));
-            }
+    try {
+      // 1. Agendamentos sempre são buscados (independente de ser STAFF ou MANAGER)
+      const tasks = [getAppointments()];
 
-            const results = await Promise.all(tasks);
+      // 2. Se a role for MANAGER, inclui o resumo financeiro
+      if (role === "MANAGER") {
+        const { start, end } = getCurrentMonthRange();
+        tasks.push(getFinanceSummary(start, end));
+      }
 
-            setAppointments(results[0]);
-            if(role === "MANAGER") {
-             setFinanceSummary(results[1]);
-            } else {
-                setFinanceSummary(null);
-            }
-        } catch (err) {
-            setError(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [role]);
+      const results = await Promise.all(tasks);
 
-    useEffect(() => {
-        if (role) {
-            fetchData();
-        }
-    }, [role, fetchData]);
+      console.log("[useHomeData] Resposta recebida com sucesso.");
+      setAppointments(Array.isArray(results[0]) ? results[0] : []);
 
-    const scheduledCout =  appointments.filter((a) => a.status === "SCHEDULED").length;
-    const doneCount = appointments.filter((a)=> a.status === "DONE").length;
-    const canceledCount = appointments.filter((a)=> a.status === "CANCELED").length;
+      if (role === "MANAGER") {
+        setFinanceSummary(results[1] ?? null);
+      } else {
+        setFinanceSummary(null);
+      }
+    } catch (err) {
+      console.log("[useHomeData] Erro capturado ao carregar dados:", err);
+      setError(err);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [role]);
 
-    const nextAppointments = appointments
-    .filter((a) => a.status === "SCHEDULED")
-    .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+  useEffect(() => {
+    // Executa no carregamento do componente
+    fetchData();
+  }, [fetchData]);
 
-    return {
-        appointments,
-        nextAppointments,
-        scheduledCout,
-        doneCount,
-        canceledCount,
-        financeSummary,
-        loading,
-        error,
-        refetch: fetchData,
-    };
+  const safeAppointments = Array.isArray(appointments) ? appointments : [];
+
+  const scheduledCount = safeAppointments.filter((a) => a?.status === "SCHEDULED").length;
+  const doneCount = safeAppointments.filter((a) => a?.status === "DONE").length;
+  const canceledCount = safeAppointments.filter((a) => a?.status === "CANCELED").length;
+
+  const nextAppointments = safeAppointments
+    .filter((a) => a?.status === "SCHEDULED")
+    .sort((a, b) => new Date(a?.startAt) - new Date(b?.startAt));
+
+  return {
+    appointments: safeAppointments,
+    nextAppointments,
+    scheduledCount,
+    doneCount,
+    canceledCount,
+    financeSummary,
+    loading,
+    error,
+    refetch: fetchData,
+  };
 }

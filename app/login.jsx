@@ -11,14 +11,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import api from "../src/services/api";
-import colors from "../src/styles/colors";
-
-const { width } = Dimensions.get("window");
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -27,35 +23,57 @@ export default function Login() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (email === "" || password === "") {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password;
+
+    if (cleanEmail === "" || cleanPassword === "") {
       Alert.alert("Erro", "Por favor, preencha todos os campos.");
       return;
     }
 
     setLoading(true);
-    /*
 
     try {
+      // 1. Apaga token antigo caso exista
+      await SecureStore.deleteItemAsync("token");
+      console.log("[login] enviando requisição...", { email: cleanEmail });
+
       const response = await api.post("/auth/login", {
-        email: email,
-        password: password,
+        email: cleanEmail,
+        password: cleanPassword,
       });
+
+      console.log("[login] resposta recebida:", JSON.stringify(response.data));
+
       const token = response.data.token;
+      if (!token) {
+        console.log("[login] ATENÇÃO: token veio vazio/undefined na resposta.");
+        Alert.alert("Erro", "O servidor respondeu, mas não retornou um token válido.");
+        return;
+      }
 
       await SecureStore.setItemAsync("token", token);
+      console.log("[login] token salvo com sucesso, navegando para Home...");
 
-      Alert.alert("Sucesso", "Login realizado com sucesso!");
-
-      */
-
-    router.replace("/(tabs)/Home");
-    /*
+      router.replace("/(tabs)/Home");
     } catch (error) {
-      Alert.alert("Erro", "Falha ao realizar login.");
+      const isAxiosError = !!error?.isAxiosError;
+      console.log(
+        "[login] erro capturado:",
+        isAxiosError ? "axios" : "outro",
+        error?.response?.status,
+        error?.response?.data ?? error?.message ?? error
+      );
+
+      const errorMessage =
+        error?.response?.data?.message ??
+        error?.response?.data ??
+        "E-mail ou senha incorretos. Verifique seus dados.";
+
+      Alert.alert("Erro ao entrar", String(errorMessage));
     } finally {
       setLoading(false);
     }
-      */
   };
 
   return (
@@ -66,7 +84,7 @@ export default function Login() {
       <ScrollView
         style={{ backgroundColor: "#f4c5e9" }}
         contentContainerStyle={styles.container}
-        keyboardsShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.formBox}>
           <Image
@@ -78,9 +96,10 @@ export default function Login() {
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
-            placeholder="seu@email.com"
+            placeholder="seu@gmail.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
             value={email}
             onChangeText={setEmail}
             editable={!loading}
@@ -91,6 +110,8 @@ export default function Login() {
             style={styles.input}
             placeholder="********"
             secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
             value={password}
             onChangeText={setPassword}
             editable={!loading}
@@ -119,14 +140,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#f4c5e9",
     justifyContent: "center",
     alignItems: "center",
-    padding: width * 0.5,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
   formBox: {
     backgroundColor: "#ffffff",
-    width: width * 0.9,
+    width: "100%",
     maxWidth: 400,
-    padding: 30,
-    borderRadius: 8,
+    padding: 24,
+    borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -136,46 +158,42 @@ const styles = StyleSheet.create({
   logo: {
     width: 50,
     height: 50,
-    marginBottom: 20,
+    marginBottom: 16,
     alignSelf: "center",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#9E7B92",
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: "center",
   },
   label: {
     fontSize: 14,
-    color: "#CE9DBB",
-    marginBottom: 8,
+    color: "#9E7B92",
+    marginBottom: 6,
+    fontWeight: "600",
   },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 4,
+    borderColor: "#E2D0DC",
+    borderRadius: 12,
     padding: 12,
     fontSize: 16,
     color: "#333",
-    marginBottom: 20,
-    borderRadius: 15,
+    marginBottom: 16,
   },
   button: {
     backgroundColor: "#D1779F",
     padding: 14,
-    borderRadius: 4,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 10,
-    borderRadius: 15,
   },
   buttonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  ScrollViewContent: {
-    backgroundColor: "#f4c5e9",
   },
 });
