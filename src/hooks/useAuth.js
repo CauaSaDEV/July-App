@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getMe } from "../services/api";
+import { getMe } from "../services/Auth";
 
 /**
  * Hook para acessar os dados do usuário autenticado (nome, role, etc.)

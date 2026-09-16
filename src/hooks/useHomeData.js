@@ -56,8 +56,8 @@ export function useHomeData(role) {
 
   useEffect(() => {
     if (role !== undefined && role !== null){
-      fetchData
-    } 
+      fetchData();
+    }
   }, [fetchData, role]);
 
   const safeAppointments = Array.isArray(appointments) ? appointments : [];

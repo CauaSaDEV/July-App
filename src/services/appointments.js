@@ -26,10 +26,10 @@ export async function getAppointments(params) {
   }
 }
 
-export async function creareAppointment(payload) {
+export async function createAppointment(payload) {
   const { data } = await api.post("/appointments", payload);
   return data;
-  
+
 }
 
 export async function finishAppointment(id, payload) {
