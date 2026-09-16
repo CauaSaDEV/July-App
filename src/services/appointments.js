@@ -26,6 +26,12 @@ export async function getAppointments(params) {
   }
 }
 
+export async function creareAppointment(payload) {
+  const { data } = await api.post("/appointments", payload);
+  return data;
+  
+}
+
 export async function finishAppointment(id, payload) {
   try {
     const { data } = await api.post(`/appointments/${id}/finish`, payload);

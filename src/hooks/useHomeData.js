@@ -6,7 +6,7 @@ import { getCurrentMonthRange } from "../utils/date";
 /**
  * Agrega os dados usados na Home:
  * - agendamentos do dia atual (todos os status; backend já filtra por staff/equipe)
- * - resumo financeiro do mês (apenas se role === "MANAGER")
+ * - resumo financeiro do mês (apenas se role === "MANAGER" ou "STAFF")
  *
  * @param {string | undefined} role role do usuário autenticado (vem do useAuth)
  */
@@ -20,13 +20,16 @@ export function useHomeData(role) {
     console.log("[useHomeData] Disparando busca de dados (role atual:", role, ")");
     setLoading(true);
     setError(null);
+    
+    // Corrigido para CamelCase exato: hasFinanceAccess
+    const hasFinanceAccess = role === "MANAGER" || role === "STAFF";
 
     try {
       // 1. Agendamentos sempre são buscados (independente de ser STAFF ou MANAGER)
       const tasks = [getAppointments()];
 
-      // 2. Se a role for MANAGER, inclui o resumo financeiro
-      if (role === "MANAGER") {
+      // 2. Se a role for MANAGER ou STAFF, inclui o resumo financeiro
+      if (hasFinanceAccess) {
         const { start, end } = getCurrentMonthRange();
         tasks.push(getFinanceSummary(start, end));
       }
@@ -36,7 +39,7 @@ export function useHomeData(role) {
       console.log("[useHomeData] Resposta recebida com sucesso.");
       setAppointments(Array.isArray(results[0]) ? results[0] : []);
 
-      if (role === "MANAGER") {
+      if (hasFinanceAccess) {
         setFinanceSummary(results[1] ?? null);
       } else {
         setFinanceSummary(null);
@@ -45,15 +48,17 @@ export function useHomeData(role) {
       console.log("[useHomeData] Erro capturado ao carregar dados:", err);
       setError(err);
       setAppointments([]);
+      setFinanceSummary(null);
     } finally {
       setLoading(false);
     }
   }, [role]);
 
   useEffect(() => {
-    // Executa no carregamento do componente
-    fetchData();
-  }, [fetchData]);
+    if (role !== undefined && role !== null){
+      fetchData
+    } 
+  }, [fetchData, role]);
 
   const safeAppointments = Array.isArray(appointments) ? appointments : [];
 
@@ -74,6 +79,7 @@ export function useHomeData(role) {
     financeSummary,
     loading,
     error,
+    role,
     refetch: fetchData,
   };
 }

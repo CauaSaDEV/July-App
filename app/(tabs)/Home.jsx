@@ -55,8 +55,7 @@ export default function Home() {
     >
       {/* BOAS-VINDAS */}
       <View style={styles.welcomeBox}>
-        <Text style={styles.title}>Olá, {firstName}💅🏻!</Text>
-        <Text style={styles.subtitle}>Aqui você pode acompanhar suas atividades e mensagens.</Text>
+        <Text style={styles.title}>Olá, {firstName}💅🏻</Text>
         {user?.role && <Text style={styles.roleTag}>{ROLE_LABELS[user.role] ?? user.role}</Text>}
       </View>
 
@@ -73,18 +72,19 @@ export default function Home() {
         </View>
       </View>
 
-      {/* CARD 2: FINANCEIRO (SEMPRE VISÍVEL) */}
-      <View style={styles.cardContainer}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recebido no mês</Text>
-          <Text style={styles.cardData}>{formatCurrency(totalReceived)}</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pendente</Text>
-          <Text style={styles.cardData}>{formatCurrency(totalPending)}</Text>
-        </View>
-      </View>
-
+ {/* CARD 2: FINANCEIRO (APENAS GERENTES E STAFFS VISUALIZAM) */}
+{(user?.role === "MANAGER" || user?.role === "STAFF") && (
+  <View style={styles.cardContainer}>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Recebido no mês</Text>
+      <Text style={styles.cardData}>{formatCurrency(totalReceived)}</Text>
+    </View>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Pendente</Text>
+      <Text style={styles.cardData}>{formatCurrency(totalPending)}</Text>
+    </View>
+  </View>
+)}
       {/* CARD DE CANCELADOS (SE HOUVER) */}
       {canceledCount > 0 && (
         <View style={styles.cardContainer}>

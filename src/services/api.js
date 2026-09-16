@@ -2,7 +2,6 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Alert, Platform } from "react-native";
 
-// Função segura para ler do SecureStore em qualquer plataforma
 async function getStoredToken() {
   try {
     if (Platform.OS === "web") {
@@ -16,7 +15,7 @@ async function getStoredToken() {
 }
 
 const api = axios.create({
-  baseURL: "http://192.168.114.45:8080",
+  baseURL: "http://10.62.198.186:8080",
   timeout: 10000,
 });
 
