@@ -32,15 +32,23 @@ export async function createAppointment(payload) {
 
 }
 
-export async function finishAppointment(id, payload) {
-  try {
-    const { data } = await api.post(`/appointments/${id}/finish`, payload);
-    return data;
-  } catch (error) {
-    console.log(`=== ERRO: POST /appointments/${id}/finish ===`, error);
-    throw error;
-  }
+/**
+ * Finaliza o agendamento (marca como DONE e gera financeiro)
+ */
+export async function finishAppointment(id, finishData = {}) {
+  const payload = {
+    amount: finishData.amount ?? undefined,
+    discount: finishData.discount ?? 0,
+    paymentMethod: finishData.paymentMethod ?? "PIX",
+    paymentStatus: finishData.paymentStatus ?? "PAID",
+    notes: finishData.notes ?? undefined,
+  };
+
+  const response = await api.post(`/appointments/${id}/finish`, payload);
+  return response.data;
 }
+
+
 
 export async function cancelAppointment(id) {
   try {
@@ -50,4 +58,29 @@ export async function cancelAppointment(id) {
     console.log(`=== ERRO: PATCH /appointments/${id}/cancel ===`, error);
     throw error;
   }
+}
+import api from "./api"; // Sua instância configurada do Axios
+
+/**
+ * Lança um atendimento retroativo (Exclusivo para MANAGER)
+ * @param {Object} data
+ */
+export async function createRetroactiveAppointment(data) {
+  // Exemplo de formato aceito pelo backend:
+  // {
+  //   clientId: "uuid",
+  //   staffId: "uuid",
+  //   serviceItemId: "uuid", // opcional
+  //   startAt: "2026-02-20T14:00:00Z",
+  //   endAt: "2026-02-20T15:00:00Z",
+  //   appointmentNotes: "Atendimento de ontem",
+  //   amount: 150.00,
+  //   discount: 0,
+  //   paymentMethod: "PIX",
+  //   paymentStatus: "PAID",
+  //   receivedAt: "2026-02-20T15:00:00Z",
+  //   paymentNotes: "Pago no local"
+  // }
+  const response = await api.post("/appointments/retroactive", data);
+  return response.data;
 }

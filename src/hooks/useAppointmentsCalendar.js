@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAppointments } from "../services/appointments";
+import { 
+  getAppointments, 
+  finishAppointment, 
+  cancelAppointment 
+} from "../services/appointments";
 import { getMonthRange, toDateKey, todayDateKey } from "../utils/date";
-
 
 const STATUS_DOT_COLOR = {
   SCHEDULED: "#D1779F",
@@ -10,10 +13,11 @@ const STATUS_DOT_COLOR = {
 };
 
 /**
- * Gerencia os dados da tela de Agendamentos:
- * - busca os agendamentos do mês visível no calendário
- * - monta o objeto markedDates pro react-native-calendars
- * - filtra a lista de agendamentos do dia selecionado
+ * Gerencia a agenda mensal do aplicativo:
+ * - Busca agendamentos do mês visível no calendário
+ * - Gera marcadores para o componente Calendar
+ * - Filtra e ordena a lista de agendamentos do dia selecionado
+ * - Oferece mutações para finalizar (POST /finish) e cancelar (PATCH /cancel)
  */
 export function useAppointmentsCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -28,7 +32,7 @@ export function useAppointmentsCalendar() {
     try {
       const { start, end } = getMonthRange(monthDate);
       const data = await getAppointments({ start, end });
-      setAppointments(data);
+      setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err);
     } finally {
@@ -40,12 +44,38 @@ export function useAppointmentsCalendar() {
     fetchMonth(currentMonth);
   }, [currentMonth, fetchMonth]);
 
+  // Finaliza o agendamento na API (POST /appointments/{id}/finish)
+  const confirmAppointment = useCallback(async (id, paymentDetails = {}) => {
+    try {
+      await finishAppointment(id, paymentDetails);
+      await fetchMonth(currentMonth);
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  }, [currentMonth, fetchMonth]);
+
+  // Cancela o agendamento na API (PATCH /appointments/{id}/cancel)
+  const handleCancelAppointment = useCallback(async (id) => {
+    try {
+      await cancelAppointment(id);
+      await fetchMonth(currentMonth);
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  }, [currentMonth, fetchMonth]);
+
+  // Marcadores do calendário (calculados antes do retorno)
   const markedDates = useMemo(() => {
     const marks = {};
     appointments.forEach((appt) => {
       const key = toDateKey(appt.startAt);
       if (!marks[key]) {
-        marks[key] = { marked: true, dotColor: STATUS_DOT_COLOR[appt.status] ?? "#D1779F" };
+        marks[key] = { 
+          marked: true, 
+          dotColor: STATUS_DOT_COLOR[appt.status] ?? "#D1779F" 
+        };
       }
     });
 
@@ -58,6 +88,7 @@ export function useAppointmentsCalendar() {
     return marks;
   }, [appointments, selectedDate]);
 
+  // Filtra e ordena os agendamentos do dia selecionado por horário de início
   const dayAppointments = useMemo(() => {
     return appointments
       .filter((a) => toDateKey(a.startAt) === selectedDate)
@@ -74,6 +105,8 @@ export function useAppointmentsCalendar() {
     dayAppointments,
     loading,
     error,
+    confirmAppointment,
+    cancelAppointment: handleCancelAppointment,
     refetch: () => fetchMonth(currentMonth),
   };
 }

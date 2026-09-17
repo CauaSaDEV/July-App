@@ -7,11 +7,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { useState, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useHomeData } from "../../src/hooks/useHomeData";
-import { formatCurrency, formatTime } from "../../src/utils/date";
+import { finishAppointment } from "../../src/services/appointments";
+import { formatTime } from "../../src/utils/date";
+import MetricDetailModal from "../../src/components/MetricDetailModal";
+import FinishAppointmentModal from "../../src/components/FinishAppointmentModal";
 
 const { width } = Dimensions.get("window");
 
@@ -23,17 +28,32 @@ const ROLE_LABELS = {
 export default function Home() {
   const { user, refetch: refetchAuth } = useAuth();
   const {
+    appointments = [],
     nextAppointments = [],
     scheduledCount = 0,
     doneCount = 0,
     canceledCount = 0,
-    financeSummary,
     loading: dataLoading,
-    error: dataError,
     refetch: refetchData,
   } = useHomeData(user?.role);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedApptToFinish, setSelectedApptToFinish] = useState(null);
+
+  // Configuração do Modal de Métricas
+  const [metricModalConfig, setMetricModalConfig] = useState({
+    visible: false,
+    title: "",
+    data: [],
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.role) {
+        refetchData();
+      }
+    }, [user?.role, refetchData])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -41,57 +61,100 @@ export default function Home() {
     setRefreshing(false);
   }, [refetchAuth, refetchData]);
 
-  const firstName = user?.name?.split(" ")[0] ?? "Usuário";
+  // Executa a finalização e atualiza os dados da Home
+  async function handleConfirmFinish(id, paymentDetails) {
+    try {
+      await finishAppointment(id, paymentDetails);
+      Alert.alert("Sucesso", "Agendamento finalizado com sucesso!");
+      refetchData();
+    } catch (err) {
+      Alert.alert("Erro", "Não foi possível finalizar o agendamento.");
+      throw err;
+    }
+  }
 
-  // Garante valores financeiros numéricos (R$ 0,00 se nulo)
-  const totalReceived = financeSummary?.totalReceived ?? 0;
-  const totalPending = financeSummary?.totalPending ?? 0;
+  // Abre os detalhes conforme o card selecionado
+  function openMetricModal(type) {
+    if (type === "SCHEDULED") {
+      setMetricModalConfig({
+        visible: true,
+        title: "Agendados hoje",
+        data: appointments.filter((a) => a?.status === "SCHEDULED"),
+      });
+    } else if (type === "DONE") {
+      setMetricModalConfig({
+        visible: true,
+        title: "Concluídos hoje",
+        data: appointments.filter((a) => a?.status === "DONE"),
+      });
+    } else if (type === "CANCELED") {
+      setMetricModalConfig({
+        visible: true,
+        title: "Cancelados hoje",
+        data: appointments.filter((a) => a?.status === "CANCELED"),
+      });
+    }
+  }
+
+  const firstName = user?.name?.split(" ")[0] ?? "Usuário";
 
   return (
     <ScrollView
       style={{ backgroundColor: "#ffffff" }}
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#CE9DBB" />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#CE9DBB"
+        />
+      }
     >
       {/* BOAS-VINDAS */}
       <View style={styles.welcomeBox}>
         <Text style={styles.title}>Olá, {firstName}💅🏻</Text>
-        {user?.role && <Text style={styles.roleTag}>{ROLE_LABELS[user.role] ?? user.role}</Text>}
+        {user?.role && (
+          <Text style={styles.roleTag}>
+            {ROLE_LABELS[user.role] ?? user.role}
+          </Text>
+        )}
       </View>
 
-      {/* CARD 1: AGENDAMENTOS */}
+      {/* CARDS INTERATIVOS DE MÉTRICAS */}
       <View style={styles.cardContainer}>
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => openMetricModal("SCHEDULED")}
+        >
           <Text style={styles.cardTitle}>Agendados hoje</Text>
-          <Text style={styles.cardData}>{scheduledCount} pendente{scheduledCount === 1 ? "" : "s"}</Text>
-        </View>
+          <Text style={styles.cardData}>
+            {scheduledCount} pendente{scheduledCount === 1 ? "" : "s"}
+          </Text>
+        </TouchableOpacity>
 
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => openMetricModal("DONE")}
+        >
           <Text style={styles.cardTitle}>Concluídos hoje</Text>
-          <Text style={styles.cardData}>{doneCount} finalizado{doneCount === 1 ? "" : "s"}</Text>
-        </View>
+          <Text style={styles.cardData}>
+            {doneCount} finalizado{doneCount === 1 ? "" : "s"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
- {/* CARD 2: FINANCEIRO (APENAS GERENTES E STAFFS VISUALIZAM) */}
-{(user?.role === "MANAGER" || user?.role === "STAFF") && (
-  <View style={styles.cardContainer}>
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Recebido no mês</Text>
-      <Text style={styles.cardData}>{formatCurrency(totalReceived)}</Text>
-    </View>
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Pendente</Text>
-      <Text style={styles.cardData}>{formatCurrency(totalPending)}</Text>
-    </View>
-  </View>
-)}
       {/* CARD DE CANCELADOS (SE HOUVER) */}
       {canceledCount > 0 && (
         <View style={styles.cardContainer}>
-          <View style={[styles.card, styles.cardFull]}>
+          <TouchableOpacity
+            style={[styles.card, styles.cardFull]}
+            onPress={() => openMetricModal("CANCELED")}
+          >
             <Text style={styles.cardTitle}>Cancelados hoje</Text>
-            <Text style={styles.cardData}>{canceledCount}</Text>
-          </View>
+            <Text style={styles.cardData}>
+              {canceledCount} cancelamento{canceledCount === 1 ? "" : "s"}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -100,28 +163,77 @@ export default function Home() {
         <Text style={styles.sectionTitle}>Próximos agendamentos</Text>
 
         {dataLoading ? (
-          <ActivityIndicator size="small" color="#CE9DBB" style={{ marginTop: 10 }} />
+          <ActivityIndicator
+            size="small"
+            color="#CE9DBB"
+            style={{ marginTop: 10 }}
+          />
         ) : nextAppointments.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Nenhum agendamento pendente para hoje.</Text>
+            <Text style={styles.emptyText}>
+              Nenhum agendamento pendente para hoje.
+            </Text>
           </View>
         ) : (
-          nextAppointments.map((appt, index) => (
-            <View key={appt.id ?? index} style={styles.appointmentRow}>
-              <View style={styles.appointmentTimeBox}>
-                <Text style={styles.appointmentTime}>{formatTime(appt.startAt)}</Text>
+          nextAppointments.map((appt, index) => {
+            const clientName =
+              appt.clientName || appt.client?.name || "Cliente";
+            const serviceName =
+              appt.serviceName ||
+              appt.service?.name ||
+              appt.serviceItem?.name ||
+              "Serviço não informado";
+            const staffName = appt.staffName || appt.staff?.name;
+
+            return (
+              <View key={appt.id ?? index} style={styles.appointmentRow}>
+                <View style={styles.appointmentTimeBox}>
+                  <Text style={styles.appointmentTime}>
+                    {formatTime(appt.startAt)}
+                  </Text>
+                </View>
+                <View style={styles.appointmentInfo}>
+                  <Text style={styles.appointmentClient}>{clientName}</Text>
+                  <Text style={styles.appointmentDetail}>
+                    {serviceName}
+                    {staffName ? ` · ${staffName}` : ""}
+                  </Text>
+                </View>
+
+                {/* BOTÃO FINALIZAR */}
+                <TouchableOpacity
+                  style={styles.finishButton}
+                  onPress={() => setSelectedApptToFinish(appt)}
+                >
+                  <Text style={styles.finishText}>Finalizar</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.appointmentInfo}>
-                <Text style={styles.appointmentClient}>{appt.clientName ?? "Cliente"}</Text>
-                <Text style={styles.appointmentDetail}>
-                  {appt.serviceName ?? "Serviço não informado"}
-                  {appt.staffName ? ` · ${appt.staffName}` : ""}
-                </Text>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </View>
+
+      {/* MODAL DE DETALHES DOS CARDS */}
+      <MetricDetailModal
+        visible={metricModalConfig.visible}
+        title={metricModalConfig.title}
+        appointments={metricModalConfig.data}
+        onClose={() =>
+          setMetricModalConfig((prev) => ({ ...prev, visible: false }))
+        }
+        onConfirm={(id) => {
+          const appt = appointments.find((a) => a.id === id);
+          if (appt) setSelectedApptToFinish(appt);
+        }}
+      />
+
+      {/* MODAL DE SELEÇÃO DE PAGAMENTO E FINALIZAÇÃO */}
+      <FinishAppointmentModal
+        visible={!!selectedApptToFinish}
+        appointment={selectedApptToFinish}
+        onClose={() => setSelectedApptToFinish(null)}
+        onConfirm={handleConfirmFinish}
+      />
     </ScrollView>
   );
 }
@@ -146,10 +258,6 @@ const styles = StyleSheet.create({
     color: "#9E7B92",
     marginBottom: 5,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-  },
   roleTag: {
     marginTop: 8,
     fontSize: 12,
@@ -166,8 +274,10 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
+    minHeight: 90,
+    justifyContent: "center",
     backgroundColor: "#f9f9f9",
-    padding: 20,
+    padding: 16,
     borderRadius: 15,
     borderWidth: 1,
     borderColor: "#eee",
@@ -178,13 +288,13 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   cardFull: {
-    flex: 1,
+    width: "100%",
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "bold",
     color: "#CE9DBB",
-    marginBottom: 5,
+    marginBottom: 6,
   },
   cardData: {
     fontSize: 16,
@@ -248,5 +358,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#888",
     marginTop: 2,
+  },
+  finishButton: {
+    backgroundColor: "#CE9DBB",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  finishText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
   },
 });
