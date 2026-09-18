@@ -39,6 +39,7 @@ export default function Home() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedApptToFinish, setSelectedApptToFinish] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Configuração do Modal de Métricas
   const [metricModalConfig, setMetricModalConfig] = useState({
@@ -63,15 +64,38 @@ export default function Home() {
 
   // Executa a finalização e atualiza os dados da Home
   async function handleConfirmFinish(id, paymentDetails) {
-    try {
-      await finishAppointment(id, paymentDetails);
-      Alert.alert("Sucesso", "Agendamento finalizado com sucesso!");
-      refetchData();
-    } catch (err) {
-      Alert.alert("Erro", "Não foi possível finalizar o agendamento.");
-      throw err;
-    }
-  }
+  Alert.alert(
+  "Finalizar agendamento",
+  "Tem certeza que quer finalizar este agendamento?",
+  [
+    {
+      text: "Voltar",
+      style: "cancel",
+      onPress: () => {
+        // Modal continua aberto, usuário volta ao modal de pagamento
+      }
+    },
+    {
+      text: "Finalizar",
+      style: "destructive",
+      onPress: async () => {
+        setSubmitting(true);
+         try {
+            await finishAppointment(id, paymentDetails);
+            Alert.alert("Sucesso", "Agendamento finalizado com sucesso!");
+            setSelectedApptToFinish(null);
+            refetchData();
+          } catch (err) {
+            Alert.alert("Erro", "Não foi possível finalizar o agendamento.");
+            throw err;
+          } finally {
+            setSubmitting(false);
+          }
+        }
+      }
+    ]
+  );
+}
 
   // Abre os detalhes conforme o card selecionado
   function openMetricModal(type) {
@@ -160,7 +184,7 @@ export default function Home() {
 
       {/* SEÇÃO: PRÓXIMOS AGENDAMENTOS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Próximos agendamentos</Text>
+        <Text style={styles.sectionTitle}>Agendamentos da Semana</Text>
 
         {dataLoading ? (
           <ActivityIndicator

@@ -212,10 +212,10 @@ export default function AppointmentFormModal({
             Alert.alert("Atenção", "Selecione um profissional.");
             return;
         }
-        if (!service || !service.id){
-            Alert.alert("Atenção, Selecione um serviço para continuar.");
-            return;
-        }
+        //! if (!service || !service.id){
+        //!     Alert.alert("Atenção, Selecione um serviço para continuar.");
+        //!     return;
+        //! }
 
         const startAt = combineDateAndTime(dateKey, startTime);
         const endAt = combineDateAndTime(dateKey, endTime);

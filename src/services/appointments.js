@@ -59,7 +59,6 @@ export async function cancelAppointment(id) {
     throw error;
   }
 }
-import api from "./api"; // Sua instância configurada do Axios
 
 /**
  * Lança um atendimento retroativo (Exclusivo para MANAGER)
