@@ -1,8 +1,15 @@
 import api from "./api";
 
 export async function getClients(params = {}){
- const { data } = await api.get("/clients", { params });
- return data;
+  try {
+    const { data } = await api.get("/clients", { params });
+    return data;
+  } catch (error) {
+    console.log("=== ERRO: GET /clients ===");
+    console.log("Status:", error?.response?.status);
+    console.log("Mensagem/Dados:", error?.response?.data || error?.message);
+    throw error;
+  }
 }
 
 export async function getClientById(id) {

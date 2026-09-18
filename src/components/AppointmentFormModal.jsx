@@ -213,7 +213,7 @@ export default function AppointmentFormModal({
             return;
         }
         //! if (!service || !service.id){
-        //!     Alert.alert("Atenção, Selecione um serviço para continuar.");
+        //!     Alert.alert("Atenção", Selecione um serviço para continuar.");
         //!     return;
         //! }
 

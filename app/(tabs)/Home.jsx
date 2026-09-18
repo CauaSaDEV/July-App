@@ -13,10 +13,10 @@ import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useHomeData } from "../../src/hooks/useHomeData";
-import { finishAppointment } from "../../src/services/appointments";
 import { formatTime } from "../../src/utils/date";
 import MetricDetailModal from "../../src/components/MetricDetailModal";
 import FinishAppointmentModal from "../../src/components/FinishAppointmentModal";
+import { finishAppointment, cancelAppointment } from "../../src/services/appointments";
 
 const { width } = Dimensions.get("window");
 
@@ -62,42 +62,62 @@ export default function Home() {
     setRefreshing(false);
   }, [refetchAuth, refetchData]);
 
-  // Executa a finalização e atualiza os dados da Home
   async function handleConfirmFinish(id, paymentDetails) {
-  Alert.alert(
-  "Finalizar agendamento",
-  "Tem certeza que quer finalizar este agendamento?",
-  [
-    {
-      text: "Voltar",
-      style: "cancel",
-      onPress: () => {
-        // Modal continua aberto, usuário volta ao modal de pagamento
-      }
-    },
-    {
-      text: "Finalizar",
-      style: "destructive",
-      onPress: async () => {
-        setSubmitting(true);
-         try {
-            await finishAppointment(id, paymentDetails);
-            Alert.alert("Sucesso", "Agendamento finalizado com sucesso!");
-            setSelectedApptToFinish(null);
-            refetchData();
-          } catch (err) {
-            Alert.alert("Erro", "Não foi possível finalizar o agendamento.");
-            throw err;
-          } finally {
-            setSubmitting(false);
-          }
-        }
-      }
-    ]
-  );
-}
+    Alert.alert(
+      "Finalizar agendamento",
+      "Tem certeza que quer finalizar este agendamento?",
+      [
+        {
+          text: "Voltar",
+          style: "cancel",
+        },
+        {
+          text: "Finalizar",
+          style: "destructive",
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              await finishAppointment(id, paymentDetails);
+              Alert.alert("Sucesso", "Agendamento finalizado com sucesso!");
+              setSelectedApptToFinish(null);
+              refetchData();
+            } catch (err) {
+              Alert.alert("Erro", "Não foi possível finalizar o agendamento.");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  }
 
-  // Abre os detalhes conforme o card selecionado
+  function handleCancelAppointment(id) {
+    Alert.alert(
+      "Cancelar agendamento",
+      "Tem certeza que quer cancelar este agendamento?",
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Cancelar agendamento",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              await cancelAppointment(id);
+              Alert.alert("Cancelado", "Agendamento cancelado com sucesso!");
+              refetchData();
+            } catch (err) {
+              Alert.alert("Erro", "Não foi possível cancelar o agendamento.");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function openMetricModal(type) {
     if (type === "SCHEDULED") {
       setMetricModalConfig({
@@ -210,27 +230,40 @@ export default function Home() {
             const staffName = appt.staffName || appt.staff?.name;
 
             return (
-              <View key={appt.id ?? index} style={styles.appointmentRow}>
-                <View style={styles.appointmentTimeBox}>
-                  <Text style={styles.appointmentTime}>
-                    {formatTime(appt.startAt)}
-                  </Text>
-                </View>
-                <View style={styles.appointmentInfo}>
-                  <Text style={styles.appointmentClient}>{clientName}</Text>
-                  <Text style={styles.appointmentDetail}>
-                    {serviceName}
-                    {staffName ? ` · ${staffName}` : ""}
-                  </Text>
+              <View key={appt.id ?? index} style={styles.appointmentCard}>
+                {/* LINHA SUPERIOR: HORÁRIO E DETALHES */}
+                <View style={styles.appointmentHeader}>
+                  <View style={styles.appointmentTimeBox}>
+                    <Text style={styles.appointmentTime}>
+                      {formatTime(appt.startAt)}
+                    </Text>
+                  </View>
+                  <View style={styles.appointmentInfo}>
+                    <Text style={styles.appointmentClient}>{clientName}</Text>
+                    <Text style={styles.appointmentDetail}>
+                      {serviceName}
+                      {staffName ? ` · ${staffName}` : ""}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* BOTÃO FINALIZAR */}
-                <TouchableOpacity
-                  style={styles.finishButton}
-                  onPress={() => setSelectedApptToFinish(appt)}
-                >
-                  <Text style={styles.finishText}>Finalizar</Text>
-                </TouchableOpacity>
+                {/* BOTÕES DE AÇÃO NA PARTE INFERIOR */}
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => handleCancelAppointment(appt.id)}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.cancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.finishButton}
+                    onPress={() => setSelectedApptToFinish(appt)}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.finishText}>Finalizar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
@@ -348,15 +381,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#999",
   },
-  appointmentRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  appointmentCard: {
     backgroundColor: "#f9f9f9",
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#eee",
+  },
+  appointmentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
   },
   appointmentTimeBox: {
     backgroundColor: "#f4c5e9",
@@ -383,14 +419,30 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 2,
   },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
   finishButton: {
+    flex: 1,
     backgroundColor: "#CE9DBB",
     paddingVertical: 8,
-    paddingHorizontal: 14,
     borderRadius: 8,
-    marginLeft: 8,
+    alignItems: "center",
   },
   finishText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#FF6B6B",
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 12,

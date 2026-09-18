@@ -27,9 +27,15 @@ export async function getAppointments(params) {
 }
 
 export async function createAppointment(payload) {
-  const { data } = await api.post("/appointments", payload);
-  return data;
-
+  try {
+    const { data } = await api.post("/appointments", payload);
+    return data;
+  } catch (error) {
+    console.log("=== ERRO: POST /appointments ===");
+    console.log("Status:", error?.response?.status);
+    console.log("Mensagem/Dados:", error?.response?.data || error?.message);
+    throw error;
+  }
 }
 
 /**

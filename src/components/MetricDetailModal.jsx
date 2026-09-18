@@ -17,6 +17,7 @@ export default function MetricDetailModal({
   appointments = [],
   onClose,
   onConfirm,
+  onCancel,
 }) {
   return (
     <Modal
@@ -77,16 +78,32 @@ export default function MetricDetailModal({
                     </View>
                   </View>
 
-                  {isScheduled && onConfirm && (
-                    <TouchableOpacity
-                      style={styles.confirmButton}
-                      onPress={() => {
-                        onClose();
-                        onConfirm(item.id);
-                      }}
-                    >
-                      <Text style={styles.confirmButtonText}>Finalizar Atendimento</Text>
-                    </TouchableOpacity>
+                  {isScheduled && (onConfirm || onCancel) && (
+                    <View style={styles.buttonsRow}>
+                      {onConfirm && (
+                        <TouchableOpacity
+                          style={styles.confirmButton}
+                          onPress={() => {
+                            onClose();
+                            onConfirm(item.id);
+                          }}
+                        >
+                          <Text style={styles.confirmButtonText}>Finalizar</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {onCancel && (
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={() => {
+                            onClose();
+                            onCancel(item.id);
+                          }}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   )}
                 </View>
               );
@@ -193,8 +210,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 4,
   },
-  confirmButton: {
+  buttonsRow: {
+    flexDirection: "row",
+    gap: 8,
     marginTop: 12,
+  },
+  confirmButton: {
+    flex: 1,
     backgroundColor: "#CE9DBB",
     paddingVertical: 10,
     borderRadius: 8,
@@ -202,6 +224,18 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#F2D6D6",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#B23B3B",
     fontWeight: "bold",
     fontSize: 13,
   },

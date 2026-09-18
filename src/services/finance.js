@@ -6,12 +6,15 @@ import api from "./api";
  */
 
 export async function getFinancialSummary(start, end){
-    const { data } = await api.get("/finance/summary", { params: { start, end } });
-    return data;
-    // { start, end, totalReceived, totalPending, totalDiscount,
-  //   appointmentsCount, pendingAppointmentsCount, totalByMethod }
-
+    try {
+      const { data } = await api.get("/finance/summary", { params: { start, end } });
+      return data;
+    } catch (error) {
+      console.log("=== ERRO: GET /finance/summary ===");
+      console.log("Status:", error?.response?.status);
+      console.log("Mensagem/Dados:", error?.response?.data || error?.message);
+      throw error;
+    }
 }
-
 
 
