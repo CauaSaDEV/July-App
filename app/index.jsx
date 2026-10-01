@@ -24,7 +24,7 @@ export default function Index() {
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            router.replace('/Servicos');
+            router.replace('login')
         }, 1000);
 
         return () => clearTimeout(timer);

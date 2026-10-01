@@ -15,7 +15,7 @@ async function getStoredToken() {
 }
 
 const api = axios.create({
-  baseURL: "http://192.168.114.41:8080",
+  baseURL: "http://192.168.114.52:8080",
   timeout: 10000,
 });
 

@@ -49,6 +49,27 @@ export default function Servicos() {
     );
   }
 
+  function handleActivate(service) {
+    Alert.alert(
+      "Ativar serviço",
+      `Tem certeza que deseja ativar "${service.name}"? Ele irá aparecer como opção em novos agendamentos.`,
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Ativar",
+          onPress: async () => {
+            try {
+              await deactivateService(service.id);
+              refetch();
+            } catch (err) {
+              // erro já mostrado pelo interceptor global
+            }
+          },
+        },
+      ]
+    );
+  }
+
   const items = services.map((s) => ({
     ...s,
     label: s.name,
@@ -87,12 +108,23 @@ export default function Servicos() {
               </Text>
             </View>
 
+            {/* Exibe Desativar se o item estiver Ativo */}
             {isManager && item.active !== false && (
               <TouchableOpacity
                 style={styles.deactivateButton}
                 onPress={() => handleDeactivate(item)}
               >
                 <Text style={styles.deactivateButtonText}>Desativar</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Exibe Ativar se o item estiver Inativo */}
+            {isManager && item.active === false && (
+              <TouchableOpacity
+                style={styles.deactivateButton}
+                onPress={() => handleActivate(item)}
+              >
+                <Text style={styles.activateButtonText}>Ativar</Text>
               </TouchableOpacity>
             )}
           </TouchableOpacity>
@@ -149,15 +181,23 @@ const styles = StyleSheet.create({
   },
   deactivateButtonText: { 
     color: "#FFFFFF",
-     fontSize: 12,
-      fontWeight: "600",
-       backgroundColor: '#FF6B6B',
-    borderWidth: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    backgroundColor: '#FF6B6B',
     borderRadius: 14,
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderColor: '#FF6B6B',
-        
+    paddingHorizontal: 10,
+    overflow: "hidden",
+  },
+  activateButtonText: { 
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    backgroundColor: '#4CAF50',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    overflow: "hidden",
   },
   fab: {
     position: "absolute",
