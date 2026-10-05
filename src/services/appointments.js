@@ -45,10 +45,11 @@ export async function finishAppointment(id, finishData = {}) {
   const payload = {
     amount: finishData.amount ?? undefined,
     discount: finishData.discount ?? 0,
-    paymentMethod: finishData.paymentMethod ?? "PIX",
+    paymentMethod: finishData.paymentMethod ?? undefined,
     paymentStatus: finishData.paymentStatus ?? "PAID",
     notes: finishData.notes ?? undefined,
   };
+   console.log(JSON.stringify(payload))
 
   const response = await api.post(`/appointments/${id}/finish`, payload);
   return response.data;

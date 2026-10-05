@@ -41,6 +41,7 @@ export function useHomeData(role) {
   const scheduledCount = safeAppointments.filter((a) => a?.status === "SCHEDULED").length;
   const doneCount = safeAppointments.filter((a) => a?.status === "DONE").length;
   const canceledCount = safeAppointments.filter((a) => a?.status === "CANCELED").length;
+  const pendingCount = safeAppointments.filter((a) => a?.status === "PENDING").length;
 
   const nextAppointments = safeAppointments
     .filter((a) => a?.status === "SCHEDULED")
@@ -52,6 +53,7 @@ export function useHomeData(role) {
     scheduledCount,
     doneCount,
     canceledCount,
+    pendingCount,
     loading,
     error,
     role,

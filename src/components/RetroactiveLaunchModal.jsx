@@ -22,11 +22,32 @@ import { getClients } from "../services/clients";
 import { getServiceCatalog } from "../services/catalog";
 import { getUsers } from "../services/users";
 import { createRetroactiveAppointment } from "../services/appointments";
-import { combineDateAndTime, formatTime, formatDateToISO, dateToKey } from "../utils/date";
+import { combineDateAndTime, formatTime, dateToKey, formatCurrency } from "../utils/date";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const COLLAPSED_HEIGHT = SCREEN_HEIGHT * 0.75;
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.90;
+
+// Confira no backend quais valores o enum de paymentMethod aceita
+const PAYMENT_METHODS = [
+    { id: "PIX", label: "Pix" },
+    { id: "CASH", label: "Dinheiro" },
+    { id: "CREDIT_CARD", label: "Cartão de crédito" },
+    { id: "DEBIT_CARD", label: "Cartão de débito" },
+    { id: "TRANSFER", label: "Transferência" },
+    { id: "OTHER", label: "Outro" },
+];
+
+const PAYMENT_STATUSES = [
+    { id: "PAID", label: "Pago" },
+    { id: "PENDING", label: "Pendente" },
+];
+
+// Aceita "120", "120,50" e "120.50". Vazio vira null.
+function parseMoney(text) {
+    if (!text || !text.trim()) return null;
+    return parseFloat(text.trim().replace(",", "."));
+}
 
 function defaultTime(hours, minutes) {
     const d = new Date();
@@ -72,7 +93,11 @@ export default function RetroactiveAppointmentFormModal({
     const [client, setClient] = useState(null);
     const [staff, setStaff] = useState(null);
     const [service, setService] = useState(null);
-    
+    const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+    const [paymentStatus, setPaymentStatus] = useState("PAID");
+    const [amountText, setAmountText] = useState("");
+    const [discountText, setDiscountText] = useState("");
+
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [dateInputText, setDateInputText] = useState("");
     const [useManualDateInput, setUseManualDateInput] = useState(false);
@@ -84,6 +109,11 @@ export default function RetroactiveAppointmentFormModal({
 
     const [pickerOpen, setPickerOpen] = useState(null);
     const [timePicker, setTimePicker] = useState(null);
+
+    const isPending = paymentStatus === "PENDING";
+    const amount = parseMoney(amountText);
+    const discount = parseMoney(discountText) ?? 0;
+    const total = amount != null ? amount - discount : null;
 
     const modalHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
     const isExpanded = useRef(false);
@@ -142,6 +172,10 @@ export default function RetroactiveAppointmentFormModal({
 
         setClient(null);
         setService(null);
+        setPaymentMethod(PAYMENT_METHODS[0]);
+        setPaymentStatus("PAID");
+        setAmountText("");
+        setDiscountText("");
         setNotes("");
         const initialDate = new Date();
         setSelectedDate(initialDate);
@@ -196,6 +230,11 @@ export default function RetroactiveAppointmentFormModal({
         setService(selectedService);
         setPickerOpen(null);
 
+        // Preenche o valor com o preço de tabela (editável)
+        if (selectedService?.price != null) {
+            setAmountText(String(selectedService.price).replace(".", ","));
+        }
+
         if (selectedService?.durationMinutes) {
             const newEndTime = new Date(startTime.getTime() + selectedService.durationMinutes * 60000);
             setEndTime(newEndTime);
@@ -225,7 +264,11 @@ export default function RetroactiveAppointmentFormModal({
         if (formatted.length === 10) {
             const [day, month, year] = formatted.split("/").map(Number);
             const parsedDate = new Date(year, month - 1, day);
-            if (!isNaN(parsedDate.getTime())) {
+            const isValid =
+                !isNaN(parsedDate.getTime()) &&
+                parsedDate.getDate() === day &&
+                parsedDate.getMonth() === month - 1;
+            if (isValid) {
                 setSelectedDate(parsedDate);
             }
         }
@@ -244,24 +287,53 @@ export default function RetroactiveAppointmentFormModal({
             Alert.alert("Atenção", "O campo Serviço é obrigatório.");
             return;
         }
+        if (amount != null && (isNaN(amount) || amount < 0)) {
+            Alert.alert("Atenção", "Informe um valor válido.");
+            return;
+        }
+        if (isNaN(discount) || discount < 0) {
+            Alert.alert("Atenção", "Informe um desconto válido.");
+            return;
+        }
+        if (amount != null && discount > amount) {
+            Alert.alert("Atenção", "O desconto não pode ser maior que o valor.");
+            return;
+        }
+        if (amount == null && discount > 0) {
+            Alert.alert("Atenção", "Informe o valor para aplicar o desconto.");
+            return;
+        }
+        if (!isPending && !paymentMethod?.id) {
+            Alert.alert("Atenção", "Selecione a forma de pagamento.");
+            return;
+        }
 
         let finalDate = selectedDate;
         if (useManualDateInput) {
             const [day, month, year] = dateInputText.split("/").map(Number);
             const parsedDate = new Date(year, month - 1, day);
-            if (isNaN(parsedDate.getTime()) || dateInputText.length !== 10) {
+            if (
+                isNaN(parsedDate.getTime()) ||
+                dateInputText.length !== 10 ||
+                parsedDate.getDate() !== day ||
+                parsedDate.getMonth() !== month - 1
+            ) {
                 Alert.alert("Atenção", "Informe uma data válida no formato DD/MM/AAAA.");
                 return;
             }
             finalDate = parsedDate;
         }
 
-        const dateKey = formatDateToISO(finalDate);
+        const dateKey = dateToKey(finalDate);
         const startAt = combineDateAndTime(dateKey, startTime);
         const endAt = combineDateAndTime(dateKey, endTime);
 
         if (endAt <= startAt) {
             Alert.alert("Atenção", "O horário de término deve ser depois do início.");
+            return;
+        }
+        if (endAt >= new Date()) {
+            Alert.alert("Atenção", "O horário de término deve estar no passado.");
             return;
         }
 
@@ -274,11 +346,13 @@ export default function RetroactiveAppointmentFormModal({
                 startAt: startAt.toISOString(),
                 endAt: endAt.toISOString(),
                 appointmentNotes: notes || undefined,
-                amount: service?.price ? parseFloat(service.price) : 0,
-                discount: 0,
-                paymentStatus: "PAID",
-                paymentMethod: "PIX",
-                receivedAt: startAt.toISOString(),
+                discount,
+                paymentStatus,
+                // PENDING exige paymentMethod nulo e não aceita receivedAt
+                paymentMethod: isPending ? null : paymentMethod.id,
+                // Sem valor informado: o backend usa o defaultPrice do serviço
+                ...(amount != null && { amount }),
+                ...(!isPending && { receivedAt: startAt.toISOString() }),
             };
 
             await createRetroactiveAppointment(payload);
@@ -399,6 +473,76 @@ export default function RetroactiveAppointmentFormModal({
 
                                     <View style={styles.row}>
                                         <View style={{ flex: 1, marginRight: 8 }}>
+                                            <Text style={styles.label}>Valor (R$)</Text>
+                                            <TextInput
+                                                style={styles.textInputStyle}
+                                                value={amountText}
+                                                onChangeText={setAmountText}
+                                                keyboardType="decimal-pad"
+                                                placeholder="Preço do serviço"
+                                                placeholderTextColor="#999"
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1, marginLeft: 8 }}>
+                                            <Text style={styles.label}>Desconto (R$)</Text>
+                                            <TextInput
+                                                style={styles.textInputStyle}
+                                                value={discountText}
+                                                onChangeText={setDiscountText}
+                                                keyboardType="decimal-pad"
+                                                placeholder="0,00"
+                                                placeholderTextColor="#999"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.totalBox}>
+                                        <Text style={styles.totalLabel}>Valor total:</Text>
+                                        <Text style={styles.totalValue}>
+                                            {total != null && !isNaN(total)
+                                                ? formatCurrency(Math.max(total, 0))
+                                                : "Preço do serviço"}
+                                        </Text>
+                                    </View>
+
+                                    <Text style={styles.label}>Situação do pagamento</Text>
+                                    <View style={styles.statusRow}>
+                                        {PAYMENT_STATUSES.map((status) => {
+                                            const selected = paymentStatus === status.id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={status.id}
+                                                    style={[
+                                                        styles.statusOption,
+                                                        selected && styles.statusOptionSelected,
+                                                    ]}
+                                                    onPress={() => setPaymentStatus(status.id)}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.statusText,
+                                                            selected && styles.statusTextSelected,
+                                                        ]}
+                                                    >
+                                                        {status.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+
+                                    {!isPending && (
+                                        <Field
+                                            label="Forma de pagamento"
+                                            required
+                                            value={paymentMethod?.label}
+                                            placeholder="Selecionar forma de pagamento"
+                                            onPress={() => setPickerOpen("payment")}
+                                        />
+                                    )}
+
+                                    <View style={styles.row}>
+                                        <View style={{ flex: 1, marginRight: 8 }}>
                                             <Field
                                                 label="Início"
                                                 required
@@ -474,6 +618,17 @@ export default function RetroactiveAppointmentFormModal({
                 loading={loadingOptions}
                 onSelect={(item) => {
                     setStaff(item);
+                    setPickerOpen(null);
+                }}
+                onClose={() => setPickerOpen(null)}
+            />
+            <SelectModal
+                visible={pickerOpen === "payment"}
+                title="Forma de pagamento"
+                items={PAYMENT_METHODS}
+                loading={false}
+                onSelect={(item) => {
+                    setPaymentMethod(item);
                     setPickerOpen(null);
                 }}
                 onClose={() => setPickerOpen(null)}
@@ -618,6 +773,52 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: "row",
+    },
+    totalBox: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        backgroundColor: "#F8F8F8",
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 12,
+        marginBottom: 16,
+    },
+    totalLabel: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#555",
+    },
+    totalValue: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "#2E7D32",
+    },
+    statusRow: {
+        flexDirection: "row",
+        marginBottom: 16,
+    },
+    statusOption: {
+        flex: 1,
+        alignItems: "center",
+        paddingVertical: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#ccc",
+        backgroundColor: "#fff",
+        marginRight: 8,
+    },
+    statusOptionSelected: {
+        borderColor: "#D1779F",
+        backgroundColor: "#FDF5F9",
+    },
+    statusText: {
+        fontSize: 14,
+        color: "#555",
+    },
+    statusTextSelected: {
+        color: "#D1779F",
+        fontWeight: "bold",
     },
     submitButton: {
         backgroundColor: "#D1779F",
