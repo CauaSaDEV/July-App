@@ -13,10 +13,13 @@ import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useHomeData } from "../../src/hooks/useHomeData";
-import { formatTime } from "../../src/utils/date";
+import { formatTime, formatWeekdayDate } from "../../src/utils/date";
 import MetricDetailModal from "../../src/components/MetricDetailModal";
 import FinishAppointmentModal from "../../src/components/FinishAppointmentModal";
-import { finishAppointment, cancelAppointment } from "../../src/services/appointments";
+import {
+  finishAppointment,
+  cancelAppointment,
+} from "../../src/services/appointments";
 
 const { width } = Dimensions.get("window");
 
@@ -53,7 +56,7 @@ export default function Home() {
       if (user?.role) {
         refetchData();
       }
-    }, [user?.role, refetchData])
+    }, [user?.role, refetchData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -88,7 +91,7 @@ export default function Home() {
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -114,7 +117,7 @@ export default function Home() {
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -215,7 +218,7 @@ export default function Home() {
         ) : nextAppointments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>
-              Nenhum agendamento pendente para hoje.
+              Nenhum agendamento pendente para esta semana.
             </Text>
           </View>
         ) : (
@@ -234,6 +237,9 @@ export default function Home() {
                 {/* LINHA SUPERIOR: HORÁRIO E DETALHES */}
                 <View style={styles.appointmentHeader}>
                   <View style={styles.appointmentTimeBox}>
+                    <Text style={styles.appointmentDay}>
+                      {formatWeekdayDate(appt.startAt)}
+                    </Text>
                     <Text style={styles.appointmentTime}>
                       {formatTime(appt.startAt)}
                     </Text>
@@ -405,6 +411,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "bold",
     color: "#9E7B92",
+    alignItems: "center",
+  },
+  appointmentDay: {
+    fontSize: 11,
+    color: "#9E7B92",
+    textAlign: "center",
+    textTransform: "capitalize",
   },
   appointmentInfo: {
     flex: 1,

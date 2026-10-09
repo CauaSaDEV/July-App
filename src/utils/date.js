@@ -68,4 +68,28 @@ export function combineDateAndTime(dateKey, timeDate) {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(year, month - 1, day, timeDate.getHours(), timeDate.getMinutes(), 0);
 }
+
+/**
+ * Retorna o intervalo da semana atual (segunda 00:00 até domingo 23:59:59),
+ * em ISO-8601 UTC, pronto para GET /appointments?start=&end=.
+ */
+export function getCurrentWeekRange() {
+  const now = new Date();
+  // getDay(): 0 = domingo, 1 = segunda ... 6 = sábado
+  const diffToMonday = now.getDay() === 0 ? -6 : 1 - now.getDay();
+
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 0, 0, 0);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
+
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+/**
+ * Formata um datetime ISO como dia da semana + data curta (ex: "qua, 07/10").
+ */
+export function formatWeekdayDate(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  return date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+}
  
