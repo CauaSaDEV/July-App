@@ -11,10 +11,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import api from "../src/services/api";
+import { getMe } from "../src/services/Auth";
+
+const { width } = Dimensions.get("window");
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -23,10 +27,7 @@ export default function Login() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password;
-
-    if (cleanEmail === "" || cleanPassword === "") {
+    if (email === "" || password === "") {
       Alert.alert("Erro", "Por favor, preencha todos os campos.");
       return;
     }
@@ -34,15 +35,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1. Apaga token antigo caso exista
-      await SecureStore.deleteItemAsync("token");
-      console.log("[login] enviando requisição...", { email: cleanEmail });
-
+      console.log("[login] enviando requisição...");
       const response = await api.post("/auth/login", {
-        email: cleanEmail,
-        password: cleanPassword,
+        email: email,
+        password: password,
       });
-
       console.log("[login] resposta recebida:", JSON.stringify(response.data));
 
       const token = response.data.token;
@@ -53,10 +50,21 @@ export default function Login() {
       }
 
       await SecureStore.setItemAsync("token", token);
-      console.log("[login] token salvo com sucesso, navegando para Home...");
 
+      // Funcionários (STAFF) não acessam o app: só gerentes fazem login.
+      const me = await getMe();
+      if (me?.role !== "MANAGER") {
+        await SecureStore.deleteItemAsync("token");
+        Alert.alert("Acesso negado", "Apenas gerentes podem acessar o app.");
+        return;
+      }
+
+      console.log("[login] token salvo com sucesso, navegando para Home...");
       router.replace("/(tabs)/Home");
     } catch (error) {
+      // Se o erro veio de uma resposta HTTP (4xx/5xx) ou de rede, o interceptor
+      // em src/services/api.js já mostra um Alert automaticamente.
+      // Se for um erro de outro tipo (ex: SecureStore, navegação), mostramos aqui.
       const isAxiosError = !!error?.isAxiosError;
       console.log(
         "[login] erro capturado:",
@@ -64,13 +72,9 @@ export default function Login() {
         error?.response?.status,
         error?.response?.data ?? error?.message ?? error
       );
-
-      const errorMessage =
-        error?.response?.data?.message ??
-        error?.response?.data ??
-        "E-mail ou senha incorretos. Verifique seus dados.";
-
-      Alert.alert("Erro ao entrar", String(errorMessage));
+      if (!isAxiosError) {
+        Alert.alert("Erro inesperado", String(error?.message ?? error));
+      }
     } finally {
       setLoading(false);
     }
@@ -84,7 +88,7 @@ export default function Login() {
       <ScrollView
         style={{ backgroundColor: "#f4c5e9" }}
         contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+        keyboardsShouldPersistTaps="handled"
       >
         <View style={styles.formBox}>
           <Image
@@ -96,10 +100,9 @@ export default function Login() {
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
-            placeholder="seu@gmail.com"
+            placeholder="seu@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
             value={email}
             onChangeText={setEmail}
             editable={!loading}
@@ -110,8 +113,6 @@ export default function Login() {
             style={styles.input}
             placeholder="********"
             secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
             value={password}
             onChangeText={setPassword}
             editable={!loading}
@@ -140,15 +141,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#f4c5e9",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    padding: width * 0.5,
   },
   formBox: {
     backgroundColor: "#ffffff",
-    width: "100%",
+    width: width * 0.9,
     maxWidth: 400,
-    padding: 24,
-    borderRadius: 16,
+    padding: 30,
+    borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -158,42 +158,46 @@ const styles = StyleSheet.create({
   logo: {
     width: 50,
     height: 50,
-    marginBottom: 16,
+    marginBottom: 20,
     alignSelf: "center",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#9E7B92",
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: "center",
   },
   label: {
     fontSize: 14,
-    color: "#9E7B92",
-    marginBottom: 6,
-    fontWeight: "600",
+    color: "#CE9DBB",
+    marginBottom: 8,
   },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#E2D0DC",
-    borderRadius: 12,
+    borderColor: "#ccc",
+    borderRadius: 4,
     padding: 12,
     fontSize: 16,
     color: "#333",
-    marginBottom: 16,
+    marginBottom: 20,
+    borderRadius: 15,
   },
   button: {
     backgroundColor: "#D1779F",
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 4,
     alignItems: "center",
     marginTop: 10,
+    borderRadius: 15,
   },
   buttonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  ScrollViewContent: {
+    backgroundColor: "#f4c5e9",
   },
 });
