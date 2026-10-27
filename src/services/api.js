@@ -5,7 +5,7 @@ import { Alert, Platform } from "react-native";
 async function getStoredToken() {
   try {
     if (Platform.OS === "web") {
-      return localStorage.getItem("token");
+      return localStorage.getItem("token")
     }
     return await SecureStore.getItemAsync("token");
   } catch (err) {
@@ -15,7 +15,7 @@ async function getStoredToken() {
 }
 
 const api = axios.create({
-  baseURL: "http://192.168.114.50:8080",
+  baseURL: "http://10.220.150.186:8080",
   timeout: 10000,
 });
 

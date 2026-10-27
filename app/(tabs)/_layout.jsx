@@ -1,5 +1,6 @@
 import { withLayoutContext, usePathname } from "expo-router";
-import { createMaterialTopTabNavigator } from "expo-router/js-top-tabs";
+// Importação correta e oficial para o SDK 58
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import {
   View,
   TouchableOpacity,
@@ -11,8 +12,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const { Navigator } = createMaterialTopTabNavigator();
-const Tabs = withLayoutContext(Navigator);
+// NOVA SINTAXE SDK 58 / React Navigation v7: Passamos a própria função construtora para o wrapper do Expo Router
+const MaterialTopTabs = createMaterialTopTabNavigator();
+const Tabs = withLayoutContext(MaterialTopTabs.Navigator);
 
 const PAGE_TITLES = {
   "/Home": "Início",
@@ -23,12 +25,11 @@ const PAGE_TITLES = {
   "/Usuarios": "Usuários",
 };
 
-// Breakpoints centralizados — mude aqui se quiser ajustar os cortes
 const BREAKPOINTS = {
-  xs: 360,   // celular pequeno
-  sm: 400,   // celular padrão
-  md: 600,   // celular grande / tablet pequeno em pé
-  lg: 900,   // tablet
+  xs: 360,   
+  sm: 400,   
+  md: 600,   
+  lg: 900,   
 };
 
 function useResponsive() {
@@ -36,7 +37,7 @@ function useResponsive() {
   const isLandscape = width > height;
   const isTablet = width >= BREAKPOINTS.md;
   const isSmallScreen = width < BREAKPOINTS.xs;
-  const isShortHeight = height < 420; // paisagem em celular = tela baixa
+  const isShortHeight = height < 420; 
 
   return { width, height, isLandscape, isTablet, isSmallScreen, isShortHeight };
 }
@@ -78,7 +79,6 @@ function CustomTabBar({ state, descriptors, navigation }) {
   const barHeight = isShortHeight ? 48 : isTablet ? 68 : 60;
   const iconSize = isSmallScreen ? 20 : isTablet ? 26 : 24;
 
-  // Em telas largas, limita a barra a uma largura confortável e centraliza
   const maxBarWidth = 520;
   const availableWidth = width - horizontalMargin * 2;
   const barWidth = Math.min(availableWidth, maxBarWidth);

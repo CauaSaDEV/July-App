@@ -14,7 +14,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.cauasantanademacedo.JulyApp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -23,7 +24,8 @@
       "expo-secure-store",
       "expo-router",
       "expo-status-bar",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ]
   }
 }
