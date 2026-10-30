@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useAppointmentsCalendar } from "../../src/hooks/useAppointmentsCalendar";
@@ -36,14 +37,16 @@ export default function Agendamentos() {
   const [retroactiveVisible, setRetroactiveVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 
-  // Listas de apoio para o lançamento retroativo
   const [clients, setClients] = useState([]);
   const [staffs, setStaffs] = useState([]);
   const [services, setServices] = useState([]);
 
-  useEffect(() => {
-    loadAuxData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadAuxData();
+      refetch(); 
+    }, [])
+  );
 
   async function loadAuxData() {
     try {
@@ -126,7 +129,7 @@ export default function Agendamentos() {
             <View
               style={[
                 styles.dot,
-                { backgroundColor: STATUS_COLORS[item.status] ?? "#ccc" },
+                { backgroundColor: STATUS_COLORS[item.status] ?? "#fcfcfc" },
               ]}
             />
             <View style={styles.rowTimeBox}>

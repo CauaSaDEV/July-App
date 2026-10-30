@@ -1,6 +1,4 @@
-import { withLayoutContext, usePathname } from "expo-router";
-// Importação correta e oficial para o SDK 58
-import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import {
   View,
   TouchableOpacity,
@@ -12,10 +10,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-// NOVA SINTAXE SDK 58 / React Navigation v7: Passamos a própria função construtora para o wrapper do Expo Router
-const MaterialTopTabs = createMaterialTopTabNavigator();
-const Tabs = withLayoutContext(MaterialTopTabs.Navigator);
-
 const PAGE_TITLES = {
   "/Home": "Início",
   "/Agendamentos": "Agendamentos",
@@ -26,10 +20,10 @@ const PAGE_TITLES = {
 };
 
 const BREAKPOINTS = {
-  xs: 360,   
-  sm: 400,   
-  md: 600,   
-  lg: 900,   
+  xs: 360,
+  sm: 400,
+  md: 600,
+  lg: 900,
 };
 
 function useResponsive() {
@@ -37,7 +31,7 @@ function useResponsive() {
   const isLandscape = width > height;
   const isTablet = width >= BREAKPOINTS.md;
   const isSmallScreen = width < BREAKPOINTS.xs;
-  const isShortHeight = height < 420; 
+  const isShortHeight = height < 420;
 
   return { width, height, isLandscape, isTablet, isSmallScreen, isShortHeight };
 }
@@ -70,7 +64,8 @@ function TopHeader() {
   );
 }
 
-function CustomTabBar({ state, descriptors, navigation }) {
+function CustomTabBar({ state, descriptors }) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, isTablet, isSmallScreen, isShortHeight } = useResponsive();
 
@@ -103,13 +98,8 @@ function CustomTabBar({ state, descriptors, navigation }) {
         const isFocused = state.index === index;
 
         const onPress = () => {
-          const event = navigation.emit({
-            type: "tabPress",
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name, route.params);
+          if (!isFocused) {
+            router.navigate(route.name === "index" ? "/" : `/${route.name}`);
           }
         };
 
@@ -176,7 +166,7 @@ export default function TabsLayout() {
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
-          swipeEnabled: true,
+          headerShown: false, // o TopHeader acima já faz esse papel
           lazy: true,
         }}
       >

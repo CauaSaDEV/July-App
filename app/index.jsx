@@ -1,10 +1,8 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-// 1. Importe o LocaleConfig aqui na raiz do projeto
 import { LocaleConfig } from 'react-native-calendars';
 
-// 2. Configure a tradução global imediatamente ao abrir o app
 LocaleConfig.locales['pt-br'] = {
   monthNames: [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
