@@ -32,6 +32,12 @@ import {
 
 import PendingPaymentsSection from "../../src/components/PendingPaymentSection";
 import { formatCurrency } from "../../src/utils/date";
+import MetricPage from "../../src/components/MetricPage";
+import {
+  formatCurrencyShort,
+  pluralize,
+  sortDistribution,
+} from "../../src/utils/chartData";
 
 const { width } = Dimensions.get("window");
 
@@ -83,6 +89,50 @@ function parseValor(texto) {
   const n = Number(String(texto).replace(/\./g, "").replace(",", "."));
   return Number.isFinite(n) ? n : NaN;
 }
+/*
+ * As 3 páginas do dashboard (uma cor por página).
+ */
+const PAGES = [
+  {
+    key: "count",
+    tab: "Atendimentos",
+    title: "Atendimentos por Profissional",
+    headerColor: "#5CC6D6",
+    barColor: "#2F80ED",
+    buttonColor: "#5CC6D6",
+    labelTitle: "Profissional",
+    valueTitle: "Atendimentos",
+  },
+  {
+    key: "amount",
+    tab: "Valor recebido",
+    title: "Valor Recebido por Profissional",
+    headerColor: "#FDB366",
+    barColor: "#F5821F",
+    buttonColor: "#FDB366",
+    labelTitle: "Profissional",
+    valueTitle: "Valor",
+  },
+  {
+    key: "service",
+    tab: "Serviços",
+    title: "Serviços por Tipo",
+    headerColor: "#4FCFA6",
+    barColor: "#27AE82",
+    buttonColor: "#4FCFA6",
+    labelTitle: "Serviço",
+    valueTitle: "Quantidade",
+  },
+];
+
+function getPeriodLabel() {
+  const month = new Date().toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return `Este mês · ${month}`;
+}
 
 export default function Financeiro() {
   const [loading, setLoading] = useState(true);
@@ -127,7 +177,7 @@ export default function Financeiro() {
         1,
         0,
         0,
-        0
+        0,
       ).toISOString();
       const end = new Date(
         now.getFullYear(),
@@ -135,7 +185,7 @@ export default function Financeiro() {
         0,
         23,
         59,
-        59
+        59,
       ).toISOString();
 
       const [
@@ -159,22 +209,22 @@ export default function Financeiro() {
       setPendingRecords(
         Array.isArray(pendingResponse)
           ? pendingResponse.filter((r) => r?.paymentStatus === "PENDING")
-          : []
+          : [],
       );
       setPaidRecords(
         Array.isArray(paidResponse)
           ? paidResponse.filter((r) => r?.paymentStatus === "PAID")
-          : []
+          : [],
       );
       setSummary(summaryResponse || null);
       setExpenseSummary(expSummaryResponse || null);
       setExpenseEntries(
-        Array.isArray(expEntriesResponse) ? expEntriesResponse : []
+        Array.isArray(expEntriesResponse) ? expEntriesResponse : [],
       );
     } catch (error) {
       console.log(
         "[Financeiro] Erro ao carregar financeiro:",
-        error?.response?.data || error
+        error?.response?.data || error,
       );
       setPendingRecords([]);
       setPaidRecords([]);
@@ -189,7 +239,7 @@ export default function Financeiro() {
   useFocusEffect(
     useCallback(() => {
       loadFinance();
-    }, [loadFinance])
+    }, [loadFinance]),
   );
 
   async function handleRefresh() {
@@ -283,6 +333,56 @@ export default function Financeiro() {
   function displayValue(value) {
     return showValues ? formatCurrency(value) : "••••••";
   }
+
+  // Eixo do gráfico de valores (ex.: "R$ 1.000")
+  function displayTick(value) {
+    return showValues ? formatCurrencyShort(value) : "•••";
+  }
+
+  /*
+   * Séries no formato do novo gráfico ({ label, value }),
+   * em ordem decrescente e com desempate alfabético.
+   * Usa as listas que você já tinha: servicesByStaff, staffChart e serviceChart.
+   */
+  const countByStaffData = sortDistribution(
+    servicesByStaff.map((item) => ({ label: item.name, value: item.count })),
+  );
+
+  const amountByStaffData = sortDistribution(
+    staffChart.map((item) => ({ label: item.name, value: item.value })),
+  );
+
+  const servicesData = sortDistribution(
+    serviceChart.map((item) => ({ label: item.name, value: item.count })),
+  );
+
+  // Total = soma das barras (assim sempre bate com o gráfico)
+  const totalAmountSum = amountByStaffData.reduce(
+    (sum, item) => sum + item.value,
+    0,
+  );
+
+  const page = PAGES[pageIndex];
+
+  // O que muda em cada página
+  const pageProps = {
+    count: {
+      data: countByStaffData,
+      totalText: pluralize(totalServices, "atendimento", "atendimentos"),
+      integer: true,
+    },
+    amount: {
+      data: amountByStaffData,
+      totalText: displayValue(totalAmountSum),
+      formatValue: displayValue,
+      formatTick: displayTick,
+    },
+    service: {
+      data: servicesData,
+      totalText: pluralize(totalServices, "serviço", "serviços"),
+      integer: true,
+    },
+  }[page.key];
 
   /*
    * =========================================================
@@ -434,7 +534,9 @@ export default function Financeiro() {
               </View>
 
               <View style={styles.metricCard}>
-                <Text style={styles.metricTitle}>Saldo (recebido − despesas)</Text>
+                <Text style={styles.metricTitle}>
+                  Saldo (recebido − despesas)
+                </Text>
                 <Text
                   style={[
                     styles.receivedValue,
@@ -494,184 +596,49 @@ export default function Financeiro() {
             </View>
 
             {/* SERVIÇOS POR FUNCIONÁRIO */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Serviços realizados por funcionário
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                Quantidade de atendimentos concluídos
-              </Text>
+            {/* SELETOR DAS 3 PÁGINAS */}
+            <View style={styles.tabs}>
+              {PAGES.map((item, index) => {
+                const selected = index === pageIndex;
 
-              {servicesByStaff.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <View style={styles.chartCard}>
-                  <View style={styles.chartInner}>
-                    {servicesByStaff.map((item, index) => (
-                      <BarRow
-                        key={`${item.name}-${index}`}
-                        name={item.name}
-                        label={`${item.count} ${
-                          item.count === 1 ? "serviço" : "serviços"
-                        }`}
-                        ratio={
-                          maxServicesByStaff > 0
-                            ? item.count / maxServicesByStaff
-                            : 0
-                        }
-                        color={COLORS.primary}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* FATURAMENTO POR FUNCIONÁRIO */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Faturamento por funcionário
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                Valor recebido por profissional
-              </Text>
-
-              {staffChart.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <View style={styles.chartCard}>
-                  <View style={styles.chartInner}>
-                    {staffChart.map((item, index) => (
-                      <BarRow
-                        key={`${item.name}-${index}`}
-                        name={item.name}
-                        label={displayValue(item.value)}
-                        ratio={maxStaffValue > 0 ? item.value / maxStaffValue : 0}
-                        color={COLORS.green}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* SERVIÇOS REALIZADOS */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Serviços realizados</Text>
-              <Text style={styles.sectionSubtitle}>
-                Quantidade de cada serviço realizado
-              </Text>
-
-              {serviceChart.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <View style={styles.chartCard}>
-                  <View style={styles.chartInner}>
-                    {serviceChart.map((item, index) => (
-                      <BarRow
-                        key={`${item.name}-${index}`}
-                        name={item.name}
-                        label={String(item.count)}
-                        ratio={
-                          maxServiceCount > 0 ? item.count / maxServiceCount : 0
-                        }
-                        color={COLORS.blue}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* ================================================= */}
-            {/* DESPESAS */}
-            {/* ================================================= */}
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionTitle}>Despesas</Text>
-                  <Text style={styles.sectionSubtitle}>
-                    Gastos lançados neste mês
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={openExpenseModal}
-                >
-                  <Ionicons name="add" size={18} color="#fff" />
-                  <Text style={styles.addButtonText}>Nova</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Por categoria */}
-              {expenseByCategory.length > 0 && (
-                <View style={[styles.chartCard, { marginBottom: 12 }]}>
-                  <View style={styles.chartInner}>
-                    {expenseByCategory.map((c, index) => (
-                      <BarRow
-                        key={`${c.categoryId}-${index}`}
-                        name={c.categoryName}
-                        label={displayValue(c.total)}
-                        ratio={
-                          maxExpenseCategory > 0
-                            ? Number(c.total ?? 0) / maxExpenseCategory
-                            : 0
-                        }
-                        color={COLORS.red}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Lista de lançamentos */}
-              {expenseEntries.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                expenseEntries.map((d) => {
-                  const canceled = d.paymentStatus === "CANCELED";
-                  return (
-                    <View
-                      key={d.id}
-                      style={[styles.expenseItem, canceled && { opacity: 0.5 }]}
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[
+                      styles.tab,
+                      selected && {
+                        backgroundColor: item.headerColor,
+                        borderColor: item.headerColor,
+                      },
+                    ]}
+                    onPress={() => setPageIndex(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.tabText,
+                        selected && styles.tabTextSelected,
+                      ]}
                     >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.expenseTitle} numberOfLines={1}>
-                          {d.title}
-                        </Text>
-                        <Text style={styles.expenseSub}>
-                          {d.categoryName ? `${d.categoryName} · ` : ""}
-                          {fmtData(d.occurredAt)}
-                          {d.paymentMethod
-                            ? ` · ${METODOS[d.paymentMethod] ?? d.paymentMethod}`
-                            : ""}
-                        </Text>
-                        {canceled && (
-                          <Text style={styles.canceledTag}>Cancelada</Text>
-                        )}
-                      </View>
-
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={styles.expenseAmount}>
-                          {displayValue(d.total ?? d.amount)}
-                        </Text>
-                        {!canceled && (
-                          <TouchableOpacity
-                            onPress={() => cancelExpense(d)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Text style={styles.cancelLink}>Cancelar</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })
-              )}
+                      {item.tab}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
+            {/* PÁGINA ATIVA */}
+            <MetricPage
+              key={page.key}
+              title={page.title}
+              headerColor={page.headerColor}
+              barColor={page.barColor}
+              buttonColor={page.buttonColor}
+              labelTitle={page.labelTitle}
+              valueTitle={page.valueTitle}
+              periodLabel={getPeriodLabel()}
+              {...pageProps}
+            />
             {/* PAGAMENTOS PENDENTES */}
             <View style={styles.section}>
               <PendingPaymentsSection
@@ -758,9 +725,14 @@ export default function Financeiro() {
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
                   placeholder="Nova categoria"
                   value={form.newCategory}
-                  onChangeText={(t) => setForm((f) => ({ ...f, newCategory: t }))}
+                  onChangeText={(t) =>
+                    setForm((f) => ({ ...f, newCategory: t }))
+                  }
                 />
-                <TouchableOpacity style={styles.newCatBtn} onPress={addCategory}>
+                <TouchableOpacity
+                  style={styles.newCatBtn}
+                  onPress={addCategory}
+                >
                   <Ionicons name="add" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -776,7 +748,9 @@ export default function Financeiro() {
                       styles.chip,
                       form.paymentMethod === key && styles.chipActive,
                     ]}
-                    onPress={() => setForm((f) => ({ ...f, paymentMethod: key }))}
+                    onPress={() =>
+                      setForm((f) => ({ ...f, paymentMethod: key }))
+                    }
                   >
                     <Text
                       style={[
@@ -1081,6 +1055,41 @@ const styles = StyleSheet.create({
 
   bottomSpacer: { height: 40 },
 
+  /*
+   * SELETOR DAS PÁGINAS
+   */
+
+  tabs: {
+    width: "100%",
+    maxWidth: 500,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E2E6E8",
+    backgroundColor: "#FFFFFF",
+  },
+
+  tabText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#5C6B71",
+    textAlign: "center",
+  },
+
+  tabTextSelected: {
+    color: "#12303A",
+  },
+
   /* MODAL */
   modalOverlay: {
     flex: 1,
@@ -1119,7 +1128,12 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 12,
   },
-  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
   chip: {
     paddingVertical: 7,
     paddingHorizontal: 14,
