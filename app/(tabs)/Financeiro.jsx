@@ -714,6 +714,8 @@ export default function Financeiro() {
                 placeholder="Ex: Conta de energia"
                 value={form.title}
                 onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
+                placeholderTextColor={"#333"}
+
               />
 
               <Text style={styles.label}>Valor (R$)</Text>
@@ -723,6 +725,7 @@ export default function Financeiro() {
                 keyboardType="decimal-pad"
                 value={form.amount}
                 onChangeText={(t) => setForm((f) => ({ ...f, amount: t }))}
+                placeholderTextColor={"#333"}
               />
 
               <Text style={styles.label}>Categoria</Text>
@@ -759,6 +762,8 @@ export default function Financeiro() {
                   placeholder="Nova categoria"
                   value={form.newCategory}
                   onChangeText={(t) => setForm((f) => ({ ...f, newCategory: t }))}
+                  placeholderTextColor={"#333"}
+
                 />
                 <TouchableOpacity style={styles.newCatBtn} onPress={addCategory}>
                   <Ionicons name="add" size={20} color="#fff" />
@@ -809,11 +814,6 @@ export default function Financeiro() {
   );
 }
 
-/*
- * ===========================================================
- * COMPONENTES AUXILIARES
- * ===========================================================
- */
 
 function BarRow({ name, label, ratio, color }) {
   return (
@@ -859,11 +859,7 @@ function EmptyChart() {
   );
 }
 
-/*
- * ===========================================================
- * ESTILOS
- * ===========================================================
- */
+
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
