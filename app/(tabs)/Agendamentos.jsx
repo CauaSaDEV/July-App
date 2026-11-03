@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useAppointmentsCalendar } from "../../src/hooks/useAppointmentsCalendar";
 import { formatTime } from "../../src/utils/date";
+import { abrirWhatsApp } from "../../src/utils/whatsapp";
 import AppointmentFormModal from "../../src/components/AppointmentFormModal";
 import AppointmentDetailModal from "../../src/components/AppointmentDetailModal";
 import RetroactiveLaunchModal from "../../src/components/RetroactiveLaunchModal";
@@ -44,9 +53,24 @@ export default function Agendamentos() {
   useFocusEffect(
     useCallback(() => {
       loadAuxData();
-      refetch(); 
+      refetch();
     }, [])
   );
+
+  function getPhone(item) {
+    const cliente = clients.find((c) => c.id === item.clientId);
+    return cliente?.subtitle;
+  }
+
+  function lembrarPeloWhatsApp(item) {
+    const hora = formatTime(item.startAt);
+    const [ano, mes, dia] = selectedDate.split("-");
+    const mensagem =
+      `Olá ${item.clientName}! Passando para lembrar do seu horário` +
+      `${item.serviceName ? ` de ${item.serviceName}` : ""}` +
+      ` no dia ${dia}/${mes}/${ano} às ${hora}. Podemos confirmar?`;
+    abrirWhatsApp(getPhone(item), mensagem);
+  }
 
   async function loadAuxData() {
     try {
@@ -70,9 +94,9 @@ export default function Agendamentos() {
           .map((s) => ({
             id: s.id,
             label: s.name,
-            price: s.price,
+            price: s.defaultPrice ?? s.price,
             durationMinutes: s.durationMinutes,
-            subtitle: `R$ ${s.price ?? "0.00"}`,
+            subtitle: `R$ ${s.defaultPrice ?? s.price ?? "0.00"}`,
           }))
       );
 
@@ -86,7 +110,7 @@ export default function Agendamentos() {
           }))
       );
     } catch (err) {
-      // Trato via interceptor da API
+      // Tratado via interceptor da API
     }
   }
 
@@ -142,6 +166,16 @@ export default function Agendamentos() {
                 {isManager && item.staffName ? ` · ${item.staffName}` : ""}
               </Text>
             </View>
+
+            {item.status === "SCHEDULED" && (
+              <TouchableOpacity
+                style={styles.whatsBtn}
+                onPress={() => lembrarPeloWhatsApp(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         )}
       />
@@ -226,6 +260,12 @@ const styles = StyleSheet.create({
   rowTime: { fontSize: 13, fontWeight: "bold", color: "#9E7B92" },
   rowClient: { fontSize: 14, fontWeight: "600", color: "#333" },
   rowDetail: { fontSize: 12, color: "#888", marginTop: 2 },
+  whatsBtn: {
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: "#E8F8EE",
+  },
   fab: {
     position: "absolute",
     right: 24,

@@ -14,9 +14,9 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import api from "../src/services/api";
 import { getMe } from "../src/services/Auth";
+import { salvarItem, removerItem } from "../src/services/storage";
 
 const { width } = Dimensions.get("window");
 
@@ -45,16 +45,19 @@ export default function Login() {
       const token = response.data.token;
       if (!token) {
         console.log("[login] ATENÇÃO: token veio vazio/undefined na resposta.");
-        Alert.alert("Erro", "O servidor respondeu, mas não retornou um token válido.");
+        Alert.alert(
+          "Erro",
+          "O servidor respondeu, mas não retornou um token válido."
+        );
         return;
       }
 
-      await SecureStore.setItemAsync("token", token);
+      await salvarItem("token", token);
 
       // Funcionários (STAFF) não acessam o app: só gerentes fazem login.
       const me = await getMe();
       if (me?.role !== "MANAGER") {
-        await SecureStore.deleteItemAsync("token");
+        await removerItem("token");
         Alert.alert("Acesso negado", "Apenas gerentes podem acessar o app.");
         return;
       }
@@ -62,9 +65,8 @@ export default function Login() {
       console.log("[login] token salvo com sucesso, navegando para Home...");
       router.replace("/(tabs)/Home");
     } catch (error) {
-      // Se o erro veio de uma resposta HTTP (4xx/5xx) ou de rede, o interceptor
-      // em src/services/api.js já mostra um Alert automaticamente.
-      // Se for um erro de outro tipo (ex: SecureStore, navegação), mostramos aqui.
+      // Erros HTTP/rede (axios) já são tratados pelo interceptor em
+      // src/services/api.js. Aqui mostramos apenas erros de outro tipo.
       const isAxiosError = !!error?.isAxiosError;
       console.log(
         "[login] erro capturado:",
@@ -88,7 +90,7 @@ export default function Login() {
       <ScrollView
         style={{ backgroundColor: "#f4c5e9" }}
         contentContainerStyle={styles.container}
-        keyboardsShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.formBox}>
           <Image
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f4c5e9",
     justifyContent: "center",
     alignItems: "center",
-    padding: width * 0.5,
+    padding: 20,
   },
   formBox: {
     backgroundColor: "#ffffff",
@@ -177,27 +179,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 4,
+    borderRadius: 15,
     padding: 12,
     fontSize: 16,
     color: "#333",
     marginBottom: 20,
-    borderRadius: 15,
   },
   button: {
     backgroundColor: "#D1779F",
     padding: 14,
-    borderRadius: 4,
+    borderRadius: 15,
     alignItems: "center",
     marginTop: 10,
-    borderRadius: 15,
   },
   buttonText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  ScrollViewContent: {
-    backgroundColor: "#f4c5e9",
   },
 });

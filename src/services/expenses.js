@@ -1,37 +1,31 @@
 import api from "./api";
 
-// Todos os endpoints de /expenses exigem papel MANAGER.
-
-export async function getExpenseCategories(params = {}) {
-  const { data } = await api.get("/expenses/categories", { params });
-  return data;
-}
-
-export async function createExpenseCategory(payload) {
-  // payload: { name, description? }
-  const { data } = await api.post("/expenses/categories", payload);
-  return data;
+export async function getExpensesSummary(start, end) {
+  const res = await api.get("/expenses/summary", { params: { start, end } });
+  return res.data;
 }
 
 export async function getExpenseEntries(params = {}) {
-  // params: start, end, categoryId, paymentStatus, paymentMethod, q
-  const { data } = await api.get("/expenses/entries", { params });
-  return data;
+  const res = await api.get("/expenses/entries", { params });
+  return res.data;
 }
 
-export async function createExpenseEntry(payload) {
-  const { data } = await api.post("/expenses/entries", payload);
-  return data;
+export async function createExpenseEntry(body) {
+  const res = await api.post("/expenses/entries", body);
+  return res.data;
 }
 
 export async function cancelExpenseEntry(id) {
-  const { data } = await api.patch(`/expenses/entries/${id}/cancel`);
-  return data;
+  const res = await api.patch(`/expenses/entries/${id}/cancel`);
+  return res.data;
 }
 
-export async function getExpensesSummary(start, end, groupBy) {
-  const params = { start, end };
-  if (groupBy) params.groupBy = groupBy; // "category" | "month"
-  const { data } = await api.get("/expenses/summary", { params });
-  return data; // { start, end, total, byCategory?, byMonth? }
+export async function getExpenseCategories(params = {}) {
+  const res = await api.get("/expenses/categories", { params });
+  return res.data;
+}
+
+export async function createExpenseCategory(body) {
+  const res = await api.post("/expenses/categories", body);
+  return res.data;
 }
