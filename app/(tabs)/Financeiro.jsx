@@ -31,8 +31,8 @@ import {
 } from "../../src/services/expenses";
 
 import PendingPaymentsSection from "../../src/components/PendingPaymentSection";
-import { formatCurrency } from "../../src/utils/date";
 import MetricPage from "../../src/components/MetricPage";
+import { formatCurrency } from "../../src/utils/date";
 import {
   formatCurrencyShort,
   pluralize,
@@ -50,8 +50,6 @@ const COLORS = {
   secondary: "#888888",
   green: "#4CAF50",
   orange: "#E67E22",
-  blue: "#6C8EBF",
-  purple: "#9B7EBD",
   red: "#D9534F",
 };
 
@@ -64,34 +62,6 @@ const METODOS = {
   OTHER: "Outro",
 };
 
-function notify(title, msg) {
-  if (Platform.OS === "web") window.alert(`${title}\n${msg}`);
-  else Alert.alert(title, msg);
-}
-
-function confirmar(title, msg, onYes) {
-  if (Platform.OS === "web") {
-    if (window.confirm(`${title}\n\n${msg}`)) onYes();
-    return;
-  }
-  Alert.alert(title, msg, [
-    { text: "Não", style: "cancel" },
-    { text: "Sim", style: "destructive", onPress: onYes },
-  ]);
-}
-
-function fmtData(iso) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString("pt-BR");
-}
-
-function parseValor(texto) {
-  const n = Number(String(texto).replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : NaN;
-}
-/*
- * As 3 páginas do dashboard (uma cor por página).
- */
 const PAGES = [
   {
     key: "count",
@@ -123,22 +93,53 @@ const PAGES = [
     labelTitle: "Serviço",
     valueTitle: "Quantidade",
   },
+
+    {
+    key: "expenses",
+    tab: "Despesas",
+    title: "Despesas por Categoria",
+    headerColor: "#F28B82",
+    barColor: "#D9534F",
+    buttonColor: "#F28B82",
+    labelTitle: "Categoria",
+    valueTitle: "Valor",
+  },
+
 ];
 
-function getPeriodLabel() {
-  const month = new Date().toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
+function notify(title, msg) {
+  if (Platform.OS === "web") window.alert(`${title}\n${msg}`);
+  else Alert.alert(title, msg);
+}
 
-  return `Este mês · ${month}`;
+function confirmar(title, msg, onYes) {
+  if (Platform.OS === "web") {
+    if (window.confirm(`${title}\n\n${msg}`)) onYes();
+    return;
+  }
+  Alert.alert(title, msg, [
+    { text: "Não", style: "cancel" },
+    { text: "Sim", style: "destructive", onPress: onYes },
+  ]);
+}
+
+function fmtData(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function parseValor(texto) {
+  const n = Number(String(texto).replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : NaN;
 }
 
 export default function Financeiro() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [pendingRecords, setPendingRecords] = useState([]);
+  // Mês/Ano selecionado
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+
   const [paidRecords, setPaidRecords] = useState([]);
   const [summary, setSummary] = useState(null);
 
@@ -147,6 +148,7 @@ export default function Financeiro() {
   const [expenseEntries, setExpenseEntries] = useState([]);
 
   const [showValues, setShowValues] = useState(true);
+  const [pageIndex, setPageIndex] = useState(0);
 
   // Modal nova despesa
   const [modalVisible, setModalVisible] = useState(false);
@@ -160,6 +162,27 @@ export default function Financeiro() {
     newCategory: "",
   });
 
+  const changeMonth = (delta) => {
+    setSelectedDate((prevDate) => {
+      const newDate = new Date(prevDate);
+      newDate.setMonth(newDate.getMonth() + delta);
+      return newDate;
+    });
+  };
+
+  const periodLabel = useMemo(() => {
+    const month = selectedDate.toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+    const now = new Date();
+    const isCurrentMonth =
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getFullYear() === now.getFullYear();
+
+    return `${isCurrentMonth ? "Este mês" : "Mês selecionado"} · ${month}`;
+  }, [selectedDate]);
+
   /*
    * =========================================================
    * CARREGAR FINANCEIRO
@@ -170,63 +193,45 @@ export default function Financeiro() {
     try {
       setLoading(true);
 
-      const now = new Date();
-      const start = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1,
-        0,
-        0,
-        0,
-      ).toISOString();
-      const end = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-      ).toISOString();
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+
+      const start = new Date(year, month, 1, 0, 0, 0).toISOString();
+      const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
       const [
-        pendingResponse,
         paidResponse,
         summaryResponse,
         expSummaryResponse,
         expEntriesResponse,
       ] = await Promise.all([
-        getFinanceRecords({ status: "PENDING" }),
         getFinanceRecords({
           status: "PAID",
           receivedStart: start,
           receivedEnd: end,
+          start,
+          end,
         }),
         getFinanceSummary(start, end),
         getExpensesSummary(start, end),
         getExpenseEntries({ start, end }),
       ]);
 
-      setPendingRecords(
-        Array.isArray(pendingResponse)
-          ? pendingResponse.filter((r) => r?.paymentStatus === "PENDING")
-          : [],
-      );
       setPaidRecords(
         Array.isArray(paidResponse)
           ? paidResponse.filter((r) => r?.paymentStatus === "PAID")
-          : [],
+          : []
       );
       setSummary(summaryResponse || null);
       setExpenseSummary(expSummaryResponse || null);
       setExpenseEntries(
-        Array.isArray(expEntriesResponse) ? expEntriesResponse : [],
+        Array.isArray(expEntriesResponse) ? expEntriesResponse : []
       );
     } catch (error) {
       console.log(
         "[Financeiro] Erro ao carregar financeiro:",
-        error?.response?.data || error,
+        error?.response?.data || error
       );
-      setPendingRecords([]);
       setPaidRecords([]);
       setSummary(null);
       setExpenseSummary(null);
@@ -234,12 +239,12 @@ export default function Financeiro() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDate]);
 
   useFocusEffect(
     useCallback(() => {
       loadFinance();
-    }, [loadFinance]),
+    }, [loadFinance])
   );
 
   async function handleRefresh() {
@@ -253,6 +258,28 @@ export default function Financeiro() {
 
   /*
    * =========================================================
+   * FILTRO LOCAL POR MÊS/ANO SELECIONADO (Garante isolamento dos gráficos)
+   * =========================================================
+   */
+
+  const filteredPaidRecords = useMemo(() => {
+    const selYear = selectedDate.getFullYear();
+    const selMonth = selectedDate.getMonth();
+
+    return paidRecords.filter((record) => {
+      const dateStr =
+        record.receivedAt ||
+        record.paymentDate ||
+        record.createdAt ||
+        record.date;
+      if (!dateStr) return true; // Se não tiver data salva, mantém
+      const d = new Date(dateStr);
+      return d.getFullYear() === selYear && d.getMonth() === selMonth;
+    });
+  }, [paidRecords, selectedDate]);
+
+  /*
+   * =========================================================
    * TOTAIS
    * =========================================================
    */
@@ -261,51 +288,29 @@ export default function Financeiro() {
   const totalPending = Number(summary?.totalPending ?? 0);
   const totalExpenses = Number(expenseSummary?.total ?? 0);
 
-  // Saldo real: o que entrou menos o que saiu
   const balance = totalReceived - totalExpenses;
-  // Saldo previsto: considera também o que ainda vai entrar
   const forecast = totalReceived + totalPending - totalExpenses;
+
+  const totalServices = filteredPaidRecords.length;
 
   /*
    * =========================================================
-   * GRÁFICOS (inalterados)
+   * DADOS DOS GRÁFICOS (Usando filteredPaidRecords)
    * =========================================================
    */
 
-  const serviceChart = useMemo(() => {
-    const grouped = {};
-    paidRecords.forEach((record) => {
-      const name =
-        record.serviceName || record.service?.name || "Serviço não informado";
-      grouped[name] = (grouped[name] || 0) + 1;
-    });
-    return Object.entries(grouped)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [paidRecords]);
-
-  const maxServiceCount =
-    serviceChart.length > 0 ? Math.max(...serviceChart.map((i) => i.count)) : 0;
-
   const servicesByStaff = useMemo(() => {
     const grouped = {};
-    paidRecords.forEach((record) => {
+    filteredPaidRecords.forEach((record) => {
       const name = record.staffName || record.staff?.name || "Sem funcionário";
       grouped[name] = (grouped[name] || 0) + 1;
     });
-    return Object.entries(grouped)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [paidRecords]);
-
-  const maxServicesByStaff =
-    servicesByStaff.length > 0
-      ? Math.max(...servicesByStaff.map((i) => i.count))
-      : 0;
+    return Object.entries(grouped).map(([name, count]) => ({ name, count }));
+  }, [filteredPaidRecords]);
 
   const staffChart = useMemo(() => {
     const grouped = {};
-    paidRecords.forEach((record) => {
+    filteredPaidRecords.forEach((record) => {
       const name = record.staffName || record.staff?.name || "Sem funcionário";
       const amount =
         record.finalAmount != null
@@ -313,17 +318,36 @@ export default function Financeiro() {
           : Number(record.amount ?? 0) - Number(record.discount ?? 0);
       grouped[name] = (grouped[name] || 0) + amount;
     });
-    return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [paidRecords]);
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [filteredPaidRecords]);
 
-  const maxStaffValue =
-    staffChart.length > 0 ? Math.max(...staffChart.map((i) => i.value)) : 0;
+  const expensesChart = useMemo(() => {
+    const grouped = {};
+    expenseEntries.forEach((entry) => {
+      const label =
+        entry.category?.name || entry.categoryName || "Sem categoria";
+      grouped[label] = (grouped[label] || 0) + Number(entry.amount ?? 0);
+    });
 
-  const totalServices = paidRecords.length;
+    const list = Object.entries(grouped).map(([label, value]) => ({
+      label,
+      value,
+    }));
 
-  // Despesas por categoria
+    return sortDistribution(list);
+  }, [expenseEntries]);
+
+
+  const serviceChart = useMemo(() => {
+    const grouped = {};
+    filteredPaidRecords.forEach((record) => {
+      const name =
+        record.serviceName || record.service?.name || "Serviço não informado";
+      grouped[name] = (grouped[name] || 0) + 1;
+    });
+    return Object.entries(grouped).map(([name, count]) => ({ name, count }));
+  }, [filteredPaidRecords]);
+
   const expenseByCategory = expenseSummary?.byCategory ?? [];
   const maxExpenseCategory =
     expenseByCategory.length > 0
@@ -334,37 +358,29 @@ export default function Financeiro() {
     return showValues ? formatCurrency(value) : "••••••";
   }
 
-  // Eixo do gráfico de valores (ex.: "R$ 1.000")
   function displayTick(value) {
     return showValues ? formatCurrencyShort(value) : "•••";
   }
 
-  /*
-   * Séries no formato do novo gráfico ({ label, value }),
-   * em ordem decrescente e com desempate alfabético.
-   * Usa as listas que você já tinha: servicesByStaff, staffChart e serviceChart.
-   */
   const countByStaffData = sortDistribution(
-    servicesByStaff.map((item) => ({ label: item.name, value: item.count })),
+    servicesByStaff.map((item) => ({ label: item.name, value: item.count }))
   );
 
   const amountByStaffData = sortDistribution(
-    staffChart.map((item) => ({ label: item.name, value: item.value })),
+    staffChart.map((item) => ({ label: item.name, value: item.value }))
   );
 
   const servicesData = sortDistribution(
-    serviceChart.map((item) => ({ label: item.name, value: item.count })),
+    serviceChart.map((item) => ({ label: item.name, value: item.count }))
   );
 
-  // Total = soma das barras (assim sempre bate com o gráfico)
   const totalAmountSum = amountByStaffData.reduce(
     (sum, item) => sum + item.value,
-    0,
+    0
   );
 
   const page = PAGES[pageIndex];
 
-  // O que muda em cada página
   const pageProps = {
     count: {
       data: countByStaffData,
@@ -414,9 +430,7 @@ export default function Financeiro() {
       const created = await createExpenseCategory({ name });
       setCategories((prev) => [...prev, created]);
       setForm((f) => ({ ...f, categoryId: created.id, newCategory: "" }));
-    } catch (e) {
-      // erro HTTP tratado pelo interceptor
-    }
+    } catch (e) {}
   }
 
   async function saveExpense() {
@@ -426,7 +440,7 @@ export default function Financeiro() {
       return notify("Atenção", "Informe um valor válido.");
     if (!form.categoryId) return notify("Atenção", "Escolha uma categoria.");
 
-    const now = new Date();
+    const now = selectedDate;
     setSaving(true);
     try {
       await createExpenseEntry({
@@ -443,7 +457,6 @@ export default function Financeiro() {
       setModalVisible(false);
       loadFinance();
     } catch (e) {
-      // erro HTTP tratado pelo interceptor
     } finally {
       setSaving(false);
     }
@@ -457,12 +470,6 @@ export default function Financeiro() {
       } catch (e) {}
     });
   }
-
-  /*
-   * =========================================================
-   * RENDER
-   * =========================================================
-   */
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -481,7 +488,7 @@ export default function Financeiro() {
         {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Financeiro</Text>
+            <Text style={styles.title}>Carteira</Text>
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowValues((prev) => !prev)}
@@ -494,9 +501,33 @@ export default function Financeiro() {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.subtitle}>
-            Visão geral de recebimentos e despesas do mês
-          </Text>
+        
+
+          {/* NAVEGADOR DE MÊS */}
+          <View style={styles.monthPicker}>
+            <TouchableOpacity
+              style={styles.monthButton}
+              onPress={() => changeMonth(-1)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="chevron-back" size={20} color={COLORS.dark} />
+            </TouchableOpacity>
+
+            <Text style={styles.monthText}>
+              {selectedDate.toLocaleDateString("pt-BR", {
+                month: "long",
+                year: "numeric",
+              })}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.monthButton}
+              onPress={() => changeMonth(1)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="chevron-forward" size={20} color={COLORS.dark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
@@ -535,7 +566,7 @@ export default function Financeiro() {
 
               <View style={styles.metricCard}>
                 <Text style={styles.metricTitle}>
-                  Saldo (recebido − despesas)
+                  Saldo 
                 </Text>
                 <Text
                   style={[
@@ -548,7 +579,7 @@ export default function Financeiro() {
               </View>
             </View>
 
-            {/* RESUMO GERAL COM TODOS OS VALORES */}
+            {/* RESUMO GERAL */}
             <View style={styles.summaryCard}>
               <Text style={styles.summaryTitle}>Resumo geral do mês</Text>
 
@@ -583,24 +614,10 @@ export default function Financeiro() {
                 bold
               />
             </View>
-
-            {/* TOTAL DE SERVIÇOS */}
-            <View style={styles.singleMetricCard}>
-              <View>
-                <Text style={styles.metricTitle}>Serviços realizados</Text>
-                <Text style={styles.servicesTotal}>{totalServices}</Text>
-              </View>
-              <View style={styles.serviceIcon}>
-                <Ionicons name="cut-outline" size={26} color={COLORS.primary} />
-              </View>
-            </View>
-
-            {/* SERVIÇOS POR FUNCIONÁRIO */}
             {/* SELETOR DAS 3 PÁGINAS */}
             <View style={styles.tabs}>
               {PAGES.map((item, index) => {
                 const selected = index === pageIndex;
-
                 return (
                   <TouchableOpacity
                     key={item.key}
@@ -636,9 +653,92 @@ export default function Financeiro() {
               buttonColor={page.buttonColor}
               labelTitle={page.labelTitle}
               valueTitle={page.valueTitle}
-              periodLabel={getPeriodLabel()}
+              periodLabel={periodLabel}
               {...pageProps}
             />
+
+            {/* DESPESAS */}
+            <View style={[styles.section, { marginTop: 24 }]}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionTitle}>Despesas</Text>
+
+                </View>
+
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={openExpenseModal}
+                >
+                  <Ionicons name="add" size={18} color="#fff" />
+                  <Text style={styles.addButtonText}>Nova</Text>
+                </TouchableOpacity>
+              </View>
+
+              {expenseByCategory.length > 0 && (
+                <View style={[styles.chartCard, { marginBottom: 12 }]}>
+                  <View style={styles.chartInner}>
+                    {expenseByCategory.map((c, index) => (
+                      <BarRow
+                        key={`${c.categoryId}-${index}`}
+                        name={c.categoryName}
+                        label={displayValue(c.total)}
+                        ratio={
+                          maxExpenseCategory > 0
+                            ? Number(c.total ?? 0) / maxExpenseCategory
+                            : 0
+                        }
+                        color={COLORS.red}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {expenseEntries.length === 0 ? (
+                <EmptyChart />
+              ) : (
+                expenseEntries.map((d) => {
+                  const canceled = d.paymentStatus === "CANCELED";
+                  return (
+                    <View
+                      key={d.id}
+                      style={[styles.expenseItem, canceled && { opacity: 0.5 }]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.expenseTitle} numberOfLines={1}>
+                          {d.title}
+                        </Text>
+                        <Text style={styles.expenseSub}>
+                          {d.categoryName ? `${d.categoryName} · ` : ""}
+                          {fmtData(d.occurredAt)}
+                          {d.paymentMethod
+                            ? ` · ${METODOS[d.paymentMethod] ?? d.paymentMethod}`
+                            : ""}
+                        </Text>
+                        {canceled && (
+                          <Text style={styles.canceledTag}>Cancelada</Text>
+                        )}
+                      </View>
+
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={styles.expenseAmount}>
+                          {displayValue(d.total ?? d.amount)}
+                        </Text>
+                        {!canceled && (
+                          <TouchableOpacity
+                            onPress={() => cancelExpense(d)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={styles.cancelLink}>Cancelar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
             {/* PAGAMENTOS PENDENTES */}
             <View style={styles.section}>
               <PendingPaymentsSection
@@ -652,10 +752,7 @@ export default function Financeiro() {
         )}
       </ScrollView>
 
-      {/* ================================================= */}
       {/* MODAL NOVA DESPESA */}
-      {/* ================================================= */}
-
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -679,20 +776,19 @@ export default function Financeiro() {
               <TextInput
                 style={styles.input}
                 placeholder="Ex: Conta de energia"
+                placeholderTextColor="#999"
                 value={form.title}
                 onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
-                placeholderTextColor={"#333"}
-
               />
 
               <Text style={styles.label}>Valor (R$)</Text>
               <TextInput
                 style={styles.input}
                 placeholder="0,00"
+                placeholderTextColor="#999"
                 keyboardType="decimal-pad"
                 value={form.amount}
                 onChangeText={(t) => setForm((f) => ({ ...f, amount: t }))}
-                placeholderTextColor={"#333"}
               />
 
               <Text style={styles.label}>Categoria</Text>
@@ -727,21 +823,13 @@ export default function Financeiro() {
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
                   placeholder="Nova categoria"
+                  placeholderTextColor="#999"
                   value={form.newCategory}
-<<<<<<< HEAD
-                  onChangeText={(t) => setForm((f) => ({ ...f, newCategory: t }))}
-                  placeholderTextColor={"#333"}
-
-=======
                   onChangeText={(t) =>
                     setForm((f) => ({ ...f, newCategory: t }))
                   }
->>>>>>> a071cc37b332d368bb1034d285dce82d70e10b62
                 />
-                <TouchableOpacity
-                  style={styles.newCatBtn}
-                  onPress={addCategory}
-                >
+                <TouchableOpacity style={styles.newCatBtn} onPress={addCategory}>
                   <Ionicons name="add" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -792,6 +880,11 @@ export default function Financeiro() {
   );
 }
 
+/*
+ * ===========================================================
+ * COMPONENTES AUXILIARES E ESTILOS
+ * ===========================================================
+ */
 
 function BarRow({ name, label, ratio, color }) {
   return (
@@ -837,8 +930,6 @@ function EmptyChart() {
   );
 }
 
-
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
 
@@ -861,6 +952,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   subtitle: { fontSize: 13, color: COLORS.secondary, marginTop: 4 },
+
+  monthPicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#EEEEEE",
+  },
+  monthButton: {
+    padding: 4,
+  },
+  monthText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: COLORS.dark,
+    textTransform: "capitalize",
+  },
+
   loading: { marginTop: 40 },
 
   cardsRow: {
@@ -964,6 +1078,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  tabs: {
+    width: "100%",
+    maxWidth: 500,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#DDD",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+  },
+  tabText: { fontSize: 12, fontWeight: "600", color: COLORS.text },
+  tabTextSelected: { color: "#FFF", fontWeight: "bold" },
+
   section: { width: "100%", maxWidth: 500, marginTop: 8, marginBottom: 20 },
   sectionHeaderRow: { flexDirection: "row", alignItems: "flex-start" },
   sectionTitle: { fontSize: 17, fontWeight: "bold", color: COLORS.dark },
@@ -1051,82 +1184,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyText: { fontSize: 14, color: "#999", marginTop: 8 },
+  emptyText: {
+    color: COLORS.secondary,
+    fontSize: 13,
+    marginTop: 8,
+  },
 
   bottomSpacer: { height: 40 },
 
-  /*
-   * SELETOR DAS PÁGINAS
-   */
-
-  tabs: {
-    width: "100%",
-    maxWidth: 500,
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-
-  tab: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#E2E6E8",
-    backgroundColor: "#FFFFFF",
-  },
-
-  tabText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#5C6B71",
-    textAlign: "center",
-  },
-
-  tabTextSelected: {
-    color: "#12303A",
-  },
-
-  /* MODAL */
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
-    alignItems: "center",
   },
   modalBox: {
-    width: "100%",
-    maxWidth: 500,
-    maxHeight: "90%",
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    maxHeight: "85%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   modalTitle: { fontSize: 18, fontWeight: "bold", color: COLORS.dark },
   label: {
     fontSize: 13,
-    color: COLORS.primary,
+    fontWeight: "600",
+    color: COLORS.text,
     marginBottom: 6,
-    marginTop: 4,
+    marginTop: 10,
   },
   input: {
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    color: "#333",
-    marginBottom: 12,
+    borderColor: "#DDD",
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 10,
   },
   chipsWrap: {
     flexDirection: "row",
@@ -1135,33 +1236,39 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chip: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
+    borderColor: "#DDD",
   },
-  chipActive: { backgroundColor: "#D1779F", borderColor: "#D1779F" },
-  chipText: { fontSize: 13, color: COLORS.text },
-  chipTextActive: { color: "#fff", fontWeight: "bold" },
-  hint: { fontSize: 12, color: COLORS.secondary },
-  newCatRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  newCatBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  chipActive: {
     backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  chipText: { fontSize: 12, color: COLORS.text },
+  chipTextActive: { color: "#FFF", fontWeight: "bold" },
+  hint: { fontSize: 12, color: COLORS.secondary, marginBottom: 8 },
+  newCatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  newCatBtn: {
+    backgroundColor: COLORS.primary,
+    padding: 10,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   saveBtn: {
-    backgroundColor: "#D1779F",
-    padding: 14,
-    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 20,
-    marginBottom: 10,
   },
-  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 });

@@ -1,15 +1,8 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useState } from "react";
 import { useClients } from "../../src/hooks/useClients";
 import ClientFormModal from "../../src/components/ClientFormModal";
+import SearchableList from "../../src/components/SearchableList"; // <-- Ajuste o caminho se necessário
 
 export default function Clientes() {
   const { query, setQuery, clients, loading, refetch } = useClients();
@@ -28,29 +21,19 @@ export default function Clientes() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      <View style={styles.header}>
-        <TextInput
-          style={styles.search}
-          placeholder="Buscar por nome, telefone"
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
-      <FlatList
-        data={clients}
+    <View style={styles.container}>
+      <SearchableList
+        items={clients}
+        loading={loading}
+        search={query}
+        onSearchChange={setQuery}
+        filterLocally={false}
+        searchPlaceholder="Buscar por nome, telefone, e e-mail"
+        iconSize={24}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
         refreshing={loading}
         onRefresh={refetch}
-        ListEmptyComponent={
-          !loading ? (
-            <Text style={styles.empty}>
-              {query ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado ainda."}
-            </Text>
-          ) : null
-        }
+        emptyText={query ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado ainda."}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => openEdit(item)}>
             <View style={styles.avatar}>
@@ -64,10 +47,6 @@ export default function Clientes() {
           </TouchableOpacity>
         )}
       />
-
-      {loading && clients.length === 0 && (
-        <ActivityIndicator size="large" color="#CE9DBB" style={styles.loadingOverlay} />
-      )}
 
       <TouchableOpacity style={styles.fab} onPress={openCreate}>
         <Text style={styles.fabText}>+</Text>
@@ -84,23 +63,12 @@ export default function Clientes() {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: "#fff",
   },
-  search: {
-    backgroundColor: "#f9f9f9",
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 15,
-    padding: 12,
-    fontSize: 15,
-  },
-  list: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
-  empty: { textAlign: "center", color: "#999", marginTop: 40 },
-  loadingOverlay: { marginTop: 40 },
   row: {
     flexDirection: "row",
     alignItems: "center",

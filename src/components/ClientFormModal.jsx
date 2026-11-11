@@ -115,6 +115,8 @@ export default function ClientFormModal({ visible, client, onClose, onSaved }) {
             value={name}
             onChangeText={setName}
             placeholder="Nome completo"
+            placeholderTextColor= "#a09e9e"
+            
           />
 
           <Text style={styles.label}>Telefone</Text>
@@ -125,6 +127,7 @@ export default function ClientFormModal({ visible, client, onClose, onSaved }) {
             placeholder="(71) 99999-9999"
             keyboardType="phone-pad"
             maxLength={15}
+            placeholderTextColor= "#a09e9e"
           />
 
           <Text style={styles.label}>E-mail (opcional)</Text>
@@ -135,6 +138,7 @@ export default function ClientFormModal({ visible, client, onClose, onSaved }) {
             placeholder="cliente@exemplo.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            placeholderTextColor= "#a09e9e"
           />
 
           <Text style={styles.label}>Observações (opcional)</Text>
@@ -144,6 +148,7 @@ export default function ClientFormModal({ visible, client, onClose, onSaved }) {
             onChangeText={setNotes}
             placeholder="Preferências, alergias, etc."
             multiline
+            placeholderTextColor= "#a09e9e"
           />
 
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>

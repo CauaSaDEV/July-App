@@ -35,6 +35,7 @@ export default function ServiceFormModal({ visible, service, onClose, onSaved })
   async function handleSubmit() {
     if (!name.trim()) {
       Alert.alert("Atenção", "Informe o nome do serviço.");
+      
       return;
     }
 
@@ -83,8 +84,9 @@ export default function ServiceFormModal({ visible, service, onClose, onSaved })
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Ex: Alongamento"
-            placeholderTextColor= "#000000"
+            placeholder="Alongamento"
+            placeholderTextColor= "#a09e9e"
+
           />
 
           <Text style={styles.label}>Preço padrão (R$)</Text>
@@ -92,8 +94,9 @@ export default function ServiceFormModal({ visible, service, onClose, onSaved })
             style={styles.input}
             value={price}
             onChangeText={setPrice}
-            placeholder="120.00"
-            placeholderTextColor= "#000000"
+            placeholder="0.00"
+            placeholderTextColor= "#a09e9e"
+
 
             keyboardType="decimal-pad"
           />
@@ -104,7 +107,7 @@ export default function ServiceFormModal({ visible, service, onClose, onSaved })
             value={duration}
             onChangeText={setDuration}
             placeholder="60"
-            placeholderTextColor= "#000000"
+            placeholderTextColor= "#a09e9e"
 
             keyboardType="number-pad"
           />

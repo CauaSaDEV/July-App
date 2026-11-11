@@ -48,7 +48,7 @@ export default function MetricPage({
   buttonColor,
   periodLabel,
   totalText,
-  data,
+  data = [],
   labelTitle,
   valueTitle,
   integer = false,

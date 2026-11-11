@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { View, Text, TextInput, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Busca + lista reutilizável.
@@ -11,6 +12,7 @@ import { View, Text, TextInput, FlatList, StyleSheet, ActivityIndicator } from "
  *    (ex: tela de Clientes/Serviços, que busca via API com debounce).
  *    Nesse caso passe `filterLocally={false}` pra não filtrar duas vezes.
  */
+
 export default function SearchableList({
   items,
   loading = false,
@@ -18,6 +20,7 @@ export default function SearchableList({
   onSearchChange,
   filterLocally = true,
   searchPlaceholder = "Buscar...",
+  iconSize = 22, // <-- Ajuste aqui o tamanho da lupa (ex: 22, 24, 26)
   keyExtractor,
   renderItem,
   emptyText = "Nada encontrado.",
@@ -46,12 +49,22 @@ export default function SearchableList({
 
   return (
     <View style={[{ flex: 1 }, style]}>
-      <TextInput
-        style={styles.search}
-        placeholder={searchPlaceholder}
-        value={searchValue}
-        onChangeText={handleChange}
-      />
+      {/* Container da barra de busca com ícone */}
+      <View style={styles.searchContainer}>
+        <Ionicons
+          name="search-outline"
+          size={iconSize}
+          color="#999"
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={searchPlaceholder}
+          placeholderTextColor="#999"
+          value={searchValue}
+          onChangeText={handleChange}
+        />
+      </View>
 
       {loading && displayedItems.length === 0 ? (
         <ActivityIndicator size="large" color="#CE9DBB" style={{ marginTop: 20 }} />
@@ -71,15 +84,25 @@ export default function SearchableList({
 }
 
 const styles = StyleSheet.create({
-  search: {
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#f9f9f9",
     borderWidth: 1,
     borderColor: "#eee",
     borderRadius: 15,
-    padding: 12,
-    fontSize: 15,
+    paddingHorizontal: 12,
     marginBottom: 16,
   },
-  list: { paddingBottom: 20 },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#333",
+  },
+  list: { paddingBottom: 150 },
   empty: { textAlign: "center", color: "#999", marginTop: 40 },
 });
