@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useState } from "react";
 import { useClients } from "../../src/hooks/useClients";
 import ClientFormModal from "../../src/components/ClientFormModal";
-import SearchableList from "../../src/components/SearchableList"; // <-- Ajuste o caminho se necessário
+import SearchableList from "../../src/components/SearchableList";
+import { colorFromString } from "../../src/utils/randomColor";
 
 export default function Clientes() {
   const { query, setQuery, clients, loading, refetch } = useClients();
@@ -36,7 +37,7 @@ export default function Clientes() {
         emptyText={query ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado ainda."}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => openEdit(item)}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: colorFromString(String(item.id)) }]}>
               <Text style={styles.avatarText}>{item.name?.[0]?.toUpperCase() ?? "?"}</Text>
             </View>
             <View style={{ flex: 1 }}>
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 12,
   },
-  avatarText: { color: "#9E7B92", fontWeight: "bold", fontSize: 16 },
+  avatarText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   name: { fontSize: 15, fontWeight: "600", color: "#333" },
   detail: { fontSize: 13, color: "#666", marginTop: 2 },
   detailMuted: { fontSize: 12, color: "#999", marginTop: 1 },

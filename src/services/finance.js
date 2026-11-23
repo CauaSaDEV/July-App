@@ -1,6 +1,5 @@
 import api from "./api";
 
-// GET /finance/records
 export async function getFinanceRecords(params = {}) {
   const { data } = await api.get("/finance/records", {
     params,
@@ -9,7 +8,6 @@ export async function getFinanceRecords(params = {}) {
   return data;
 }
 
-// PATCH /finance/records/{id}/mark-paid
 export async function markRecordPaid(
   id,
   { paymentMethod, receivedAt, notes } = {}

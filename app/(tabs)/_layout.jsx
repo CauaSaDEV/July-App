@@ -189,11 +189,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontWeight: "bold",
-    color: "#000",
+    color: "#db8a8a",
   },
   tabBarFloating: {
     position: "absolute",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#ff6fc3",
     flexDirection: "row",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 6 },

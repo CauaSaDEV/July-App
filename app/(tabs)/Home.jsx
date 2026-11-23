@@ -14,7 +14,6 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useHomeData } from "../../src/hooks/useHomeData";
 import { formatTime, formatWeekdayDate } from "../../src/utils/date";
-import MetricDetailModal from "../../src/components/MetricDetailModal";
 import FinishAppointmentModal from "../../src/components/FinishAppointmentModal";
 import {
   finishAppointment,
@@ -28,28 +27,26 @@ const ROLE_LABELS = {
   STAFF: "Funcionário(a)",
 };
 
+const PERIOD_OPTIONS = [
+  { key: "DAY", label: "Dia", title: "Agendamentos de Hoje" },
+  { key: "WEEK", label: "Semana", title: "Agendamentos da Semana" },
+  { key: "MONTH", label: "Mês", title: "Agendamentos do Mês" },
+];
+
 export default function Home() {
+  const [viewMode, setViewMode] = useState("WEEK");
+  const [periodOpen, setPeriodOpen] = useState(false);
+
   const { user, refetch: refetchAuth } = useAuth();
   const {
-    appointments = [],
     nextAppointments = [],
-    scheduledCount = 0,
-    doneCount = 0,
-    canceledCount = 0,
     loading: dataLoading,
     refetch: refetchData,
-  } = useHomeData(user?.role);
+  } = useHomeData(user?.role, viewMode);
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedApptToFinish, setSelectedApptToFinish] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // Configuração do Modal de Métricas
-  const [metricModalConfig, setMetricModalConfig] = useState({
-    visible: false,
-    title: "",
-    data: [],
-  });
 
   useFocusEffect(
     useCallback(() => {
@@ -121,28 +118,6 @@ export default function Home() {
     );
   }
 
-  function openMetricModal(type) {
-    if (type === "SCHEDULED") {
-      setMetricModalConfig({
-        visible: true,
-        title: "Agendados hoje",
-        data: appointments.filter((a) => a?.status === "SCHEDULED"),
-      });
-    } else if (type === "DONE") {
-      setMetricModalConfig({
-        visible: true,
-        title: "Concluídos hoje",
-        data: appointments.filter((a) => a?.status === "DONE"),
-      });
-    } else if (type === "CANCELED") {
-      setMetricModalConfig({
-        visible: true,
-        title: "Cancelados hoje",
-        data: appointments.filter((a) => a?.status === "CANCELED"),
-      });
-    }
-  }
-
   const firstName = user?.name?.split(" ")[0] ?? "Usuário";
 
   return (
@@ -167,47 +142,54 @@ export default function Home() {
         )}
       </View>
 
-      {/* CARDS INTERATIVOS DE MÉTRICAS */}
-      <View style={styles.cardContainer}>
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => openMetricModal("SCHEDULED")}
-        >
-          <Text style={styles.cardTitle}>Agendados hoje</Text>
-          <Text style={styles.cardData}>
-            {scheduledCount} pendente{scheduledCount === 1 ? "" : "s"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => openMetricModal("DONE")}
-        >
-          <Text style={styles.cardTitle}>Concluídos hoje</Text>
-          <Text style={styles.cardData}>
-            {doneCount} finalizado{doneCount === 1 ? "" : "s"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* CARD DE CANCELADOS (SE HOUVER) */}
-      {canceledCount > 0 && (
-        <View style={styles.cardContainer}>
-          <TouchableOpacity
-            style={[styles.card, styles.cardFull]}
-            onPress={() => openMetricModal("CANCELED")}
-          >
-            <Text style={styles.cardTitle}>Cancelados hoje</Text>
-            <Text style={styles.cardData}>
-              {canceledCount} cancelamento{canceledCount === 1 ? "" : "s"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* SEÇÃO: PRÓXIMOS AGENDAMENTOS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Agendamentos da Semana</Text>
+        {/* TÍTULO COM DROPDOWN DE PERÍODO */}
+        <View style={styles.sectionHeader}>
+          <TouchableOpacity
+            style={styles.titleTrigger}
+            onPress={() => setPeriodOpen((prev) => !prev)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.sectionTitle}>
+              {PERIOD_OPTIONS.find((o) => o.key === viewMode)?.title}
+            </Text>
+            <Text style={styles.dropdownArrow}>{periodOpen ? "▲" : "▼"}</Text>
+          </TouchableOpacity>
+
+          {periodOpen && (
+            <View style={styles.dropdownList}>
+              {PERIOD_OPTIONS.map((item, index) => {
+                const isActive = viewMode === item.key;
+                const isLast = index === PERIOD_OPTIONS.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[
+                      styles.dropdownItem,
+                      isActive && styles.dropdownItemActive,
+                      isLast && { borderBottomWidth: 0 },
+                    ]}
+                    onPress={() => {
+                      setViewMode(item.key);
+                      setPeriodOpen(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        isActive && styles.dropdownItemTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isActive && <Text style={styles.dropdownCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
 
         {dataLoading ? (
           <ActivityIndicator
@@ -217,9 +199,7 @@ export default function Home() {
           />
         ) : nextAppointments.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>
-              Nenhum agendamento pendente para esta semana.
-            </Text>
+            <Text style={styles.emptyText}>Nenhum agendamento marcado.</Text>
           </View>
         ) : (
           nextAppointments.map((appt, index) => {
@@ -276,20 +256,6 @@ export default function Home() {
         )}
       </View>
 
-      {/* MODAL DE DETALHES DOS CARDS */}
-      <MetricDetailModal
-        visible={metricModalConfig.visible}
-        title={metricModalConfig.title}
-        appointments={metricModalConfig.data}
-        onClose={() =>
-          setMetricModalConfig((prev) => ({ ...prev, visible: false }))
-        }
-        onConfirm={(id) => {
-          const appt = appointments.find((a) => a.id === id);
-          if (appt) setSelectedApptToFinish(appt);
-        }}
-      />
-
       {/* MODAL DE SELEÇÃO DE PAGAMENTO E FINALIZAÇÃO */}
       <FinishAppointmentModal
         visible={!!selectedApptToFinish}
@@ -327,53 +293,23 @@ const styles = StyleSheet.create({
     color: "#9E7B92",
     fontWeight: "600",
   },
-  cardContainer: {
-    width: "100%",
-    maxWidth: 500,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 15,
-    marginBottom: 15,
-  },
-  card: {
-    flex: 1,
-    minHeight: 90,
-    justifyContent: "center",
-    backgroundColor: "#f9f9f9",
-    padding: 16,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "#eee",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  cardFull: {
-    width: "100%",
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#CE9DBB",
-    marginBottom: 6,
-  },
-  cardData: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#444",
-  },
   section: {
     width: "100%",
     maxWidth: 500,
     marginTop: 10,
   },
+  sectionHeader: {
+    alignSelf: "flex-start",
+    marginBottom: 12,
+  },
+  titleTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#9E7B92",
-    marginBottom: 12,
   },
   emptyCard: {
     backgroundColor: "#fdfdfd",
@@ -411,7 +347,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "bold",
     color: "#9E7B92",
-    alignItems: "center",
+    textAlign: "center",
   },
   appointmentDay: {
     fontSize: 11,
@@ -459,5 +395,47 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 12,
+  },
+
+  /* DROPDOWN DE PERÍODO */
+  dropdownArrow: {
+    fontSize: 11,
+    color: "#888",
+    marginLeft: 8,
+  },
+  dropdownList: {
+    marginTop: 8,
+    alignSelf: "flex-end",
+    minWidth: 130,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f2f2f2",
+  },
+  dropdownItemActive: {
+    backgroundColor: "#f5f5f5",
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: "#555",
+  },
+  dropdownItemTextActive: {
+    fontWeight: "bold",
+    color: "#333",
+  },
+  dropdownCheck: {
+    marginLeft: 12,
+    color: "#555",
+    fontWeight: "bold",
   },
 });

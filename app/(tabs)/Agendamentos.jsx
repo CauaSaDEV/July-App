@@ -17,7 +17,6 @@ import { abrirWhatsApp } from "../../src/utils/whatsapp";
 import AppointmentFormModal from "../../src/components/AppointmentFormModal";
 import AppointmentDetailModal from "../../src/components/AppointmentDetailModal";
 import RetroactiveLaunchModal from "../../src/components/RetroactiveLaunchModal";
-
 import { getClients } from "../../src/services/clients";
 import { getServiceCatalog } from "../../src/services/catalog";
 import { getUsers } from "../../src/services/users";

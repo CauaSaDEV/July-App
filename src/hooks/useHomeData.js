@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAppointments } from "../services/appointments";
-import { getCurrentWeekRange, toDateKey, todayDateKey } from "../utils/date";
+import { getCurrentMonthRange, getCurrentWeekRange, getCurrentDayRange, toDateKey, todayDateKey } from "../utils/date";
 
-/**
- * Agrega os dados dos agendamentos usados na Home.
- * - Busca a semana inteira (segunda a domingo)
- * - Cards de métricas continuam contando só o dia de hoje
- * - Lista "Agendamentos da Semana" mostra a semana
- *
- * @param {string | undefined} role role do usuário autenticado (vem do useAuth)
- */
-export function useHomeData(role) {
-  const [weekAppointments, setWeekAppointments] = useState([]);
+function getRangeByViewMode(viewMode) {
+  if (viewMode === "DAY"){
+    return getCurrentDayRange();
+}
+
+if (viewMode === "MONTH"){
+  return getCurrentMonthRange();
+}
+
+return getCurrentWeekRange();
+}
+
+
+export function useHomeData(role, viewMode = "WEEK") {
+  const [periodAppointments, setPeriodAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,17 +25,17 @@ export function useHomeData(role) {
     setError(null);
 
     try {
-      const { start, end } = getCurrentWeekRange();
+      const { start, end } = getRangeByViewMode(viewMode);
       const data = await getAppointments({ start, end });
-      setWeekAppointments(Array.isArray(data) ? data : []);
+      setPeriodAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.log("[useHomeData] Erro ao carregar agendamentos:", err);
       setError(err);
-      setWeekAppointments([]);
+      setPeriodAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, [role]);
+  }, [role, viewMode]);
 
   useEffect(() => {
     if (role !== undefined && role !== null) {
@@ -38,7 +43,7 @@ export function useHomeData(role) {
     }
   }, [fetchData, role]);
 
-  const safeWeek = Array.isArray(weekAppointments) ? weekAppointments : [];
+  const safeWeek = Array.isArray( periodAppointments) ? periodAppointments : [];
 
   // Só os de hoje -> usados nos cards "hoje"
   const today = todayDateKey();

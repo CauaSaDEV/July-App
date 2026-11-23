@@ -293,12 +293,6 @@ export default function Financeiro() {
 
   const totalServices = filteredPaidRecords.length;
 
-  /*
-   * =========================================================
-   * DADOS DOS GRÁFICOS (Usando filteredPaidRecords)
-   * =========================================================
-   */
-
   const servicesByStaff = useMemo(() => {
     const grouped = {};
     filteredPaidRecords.forEach((record) => {
@@ -321,21 +315,24 @@ export default function Financeiro() {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [filteredPaidRecords]);
 
-  const expensesChart = useMemo(() => {
-    const grouped = {};
-    expenseEntries.forEach((entry) => {
+const expensesChart = useMemo(() => {
+  const grouped = {};
+  expenseEntries
+    .filter((entry) => entry.paymentStatus !== "CANCELED")
+    .forEach((entry) => {
       const label =
         entry.category?.name || entry.categoryName || "Sem categoria";
-      grouped[label] = (grouped[label] || 0) + Number(entry.amount ?? 0);
+      grouped[label] =
+        (grouped[label] || 0) + Number(entry.total ?? entry.amount ?? 0);
     });
 
-    const list = Object.entries(grouped).map(([label, value]) => ({
-      label,
-      value,
-    }));
+  const list = Object.entries(grouped).map(([label, value]) => ({
+    label,
+    value,
+  }));
 
-    return sortDistribution(list);
-  }, [expenseEntries]);
+  return sortDistribution(list);
+}, [expenseEntries]);
 
 
   const serviceChart = useMemo(() => {
@@ -381,30 +378,32 @@ export default function Financeiro() {
 
   const page = PAGES[pageIndex];
 
-  const pageProps = {
-    count: {
-      data: countByStaffData,
-      totalText: pluralize(totalServices, "atendimento", "atendimentos"),
-      integer: true,
-    },
-    amount: {
-      data: amountByStaffData,
-      totalText: displayValue(totalAmountSum),
-      formatValue: displayValue,
-      formatTick: displayTick,
-    },
-    service: {
-      data: servicesData,
-      totalText: pluralize(totalServices, "serviço", "serviços"),
-      integer: true,
-    },
-  }[page.key];
+ const pageProps = {
+  count: {
+    data: countByStaffData,
+    totalText: pluralize(totalServices, "atendimento", "atendimentos"),
+    integer: true,
+  },
+  amount: {
+    data: amountByStaffData,
+    totalText: displayValue(totalAmountSum),
+    formatValue: displayValue,
+    formatTick: displayTick,
+  },
+  service: {
+    data: servicesData,
+    totalText: pluralize(totalServices, "serviço", "serviços"),
+    integer: true,
+  },
+  expenses: {
+    data: expensesChart,
+    totalText: displayValue(totalExpenses),
+    formatValue: displayValue,
+    formatTick: displayTick,
+  },
+}[page.key];
 
-  /*
-   * =========================================================
-   * DESPESAS: AÇÕES
-   * =========================================================
-   */
+
 
   async function openExpenseModal() {
     setForm({
@@ -673,26 +672,6 @@ export default function Financeiro() {
                   <Text style={styles.addButtonText}>Nova</Text>
                 </TouchableOpacity>
               </View>
-
-              {expenseByCategory.length > 0 && (
-                <View style={[styles.chartCard, { marginBottom: 12 }]}>
-                  <View style={styles.chartInner}>
-                    {expenseByCategory.map((c, index) => (
-                      <BarRow
-                        key={`${c.categoryId}-${index}`}
-                        name={c.categoryName}
-                        label={displayValue(c.total)}
-                        ratio={
-                          maxExpenseCategory > 0
-                            ? Number(c.total ?? 0) / maxExpenseCategory
-                            : 0
-                        }
-                        color={COLORS.red}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
 
               {expenseEntries.length === 0 ? (
                 <EmptyChart />

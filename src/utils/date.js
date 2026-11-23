@@ -93,3 +93,9 @@ export function formatWeekdayDate(isoString) {
   return date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
 }
  
+export function getCurrentDayRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  return { start: start.toISOString(), end: end.toISOString() };
+}

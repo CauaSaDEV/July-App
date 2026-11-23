@@ -18,6 +18,7 @@ function formatPhone(value) {
   if (!value) return "";
 
   const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
 
   if (digits.length <= 2) {
     return `(${digits}`;
