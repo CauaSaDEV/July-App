@@ -5,12 +5,13 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from "react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useFocusEffect } from "expo-router";
-import { Calendar } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/hooks/useAuth";
+import AgendaCalendar from "../../src/components/AppointmentCalendar";
 import { useAppointmentsCalendar } from "../../src/hooks/useAppointmentsCalendar";
 import { formatTime } from "../../src/utils/date";
 import { abrirWhatsApp } from "../../src/utils/whatsapp";
@@ -49,12 +50,71 @@ export default function Agendamentos() {
   const [staffs, setStaffs] = useState([]);
   const [services, setServices] = useState([]);
 
+  // Menu em leque do botão "+"
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnim = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
       loadAuxData();
       refetch();
     }, [])
   );
+
+  function toggleMenu() {
+    const toValue = menuOpen ? 0 : 1;
+    setMenuOpen(!menuOpen);
+    Animated.spring(menuAnim, {
+      toValue,
+      friction: 7,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+    Animated.timing(menuAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function openNewAppointment() {
+    closeMenu();
+    setFormVisible(true);
+  }
+
+  function openRetroactive() {
+    closeMenu();
+    setRetroactiveVisible(true);
+  }
+
+  // Botões do leque (o retroativo aparece só para gerentes).
+  // x e y = posição final do botão em relação ao "+" (valores negativos sobem/vão para a esquerda)
+  const FAN_ITEMS = [
+    {
+      key: "new",
+      icon: "calendar-outline",
+      label: "Novo agendamento",
+      x: 0,
+      y: -70,
+      onPress: openNewAppointment,
+    },
+    ...(isManager
+      ? [
+          {
+            key: "retroactive",
+            icon: "time-outline",
+            label: "Lançamento retroativo",
+            x: 0,
+            y: -130,
+            onPress: openRetroactive,
+          },
+        ]
+      : []),
+  ];
 
   function getPhone(item) {
     const cliente = clients.find((c) => c.id === item.clientId);
@@ -115,19 +175,11 @@ export default function Agendamentos() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      <Calendar
-        current={selectedDate}
-        onDayPress={(day) => setSelectedDate(day.dateString)}
-        onMonthChange={(month) =>
-          setCurrentMonth(new Date(month.year, month.month - 1, 1))
-        }
+      <AgendaCalendar
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        onMonthChange={setCurrentMonth}
         markedDates={markedDates}
-        theme={{
-          selectedDayBackgroundColor: "#D1779F",
-          todayTextColor: "#D1779F",
-          arrowColor: "#D1779F",
-          dotColor: "#D1779F",
-        }}
       />
 
       <View style={styles.listHeader}>
@@ -179,19 +231,75 @@ export default function Agendamentos() {
         )}
       />
 
-      {/* Botão Secundário para Lançamento Retroativo */}
-      {isManager && (
+      {/* Toque fora do leque para fechar */}
+      {menuOpen && (
         <TouchableOpacity
-          style={styles.fabRetroactive}
-          onPress={() => setRetroactiveVisible(true)}
-        >
-          <Text style={styles.fabRetroactiveText}>⏱️</Text>
-        </TouchableOpacity>
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={closeMenu}
+        />
       )}
 
-      {/* Botão Principal Novo Agendamento */}
-      <TouchableOpacity style={styles.fab} onPress={() => setFormVisible(true)}>
-        <Text style={styles.fabText}>+</Text>
+      {/* Botões do leque (ficam atrás do "+") */}
+      {FAN_ITEMS.map((item) => {
+        const translateX = menuAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, item.x],
+        });
+        const translateY = menuAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, item.y],
+        });
+        const scale = menuAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.3, 1],
+        });
+
+        return (
+          <Animated.View
+            key={item.key}
+            pointerEvents={menuOpen ? "auto" : "none"}
+            style={[
+              styles.fanItem,
+              {
+                opacity: menuAnim,
+                transform: [{ translateX }, { translateY }, { scale }],
+              },
+            ]}
+          >
+            <View style={styles.fanLabelBox}>
+              <Text style={styles.fanLabel}>{item.label}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.fanButton}
+              onPress={item.onPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={item.icon} size={22} color="#eeeeee" />
+            </TouchableOpacity>
+          </Animated.View>
+        );
+      })}
+
+      {/* Botão Principal (abre/fecha o leque) */}
+      <TouchableOpacity style={styles.fab} onPress={toggleMenu} activeOpacity={0.85}>
+        <Animated.Text
+          style={[
+            styles.fabText,
+            {
+              transform: [
+                {
+                  rotate: menuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0deg", "45deg"],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          +
+        </Animated.Text>
       </TouchableOpacity>
 
       {/* Modal Agendamento Padrão */}
@@ -265,6 +373,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#E8F8EE",
   },
+
+  /* BOTÃO PRINCIPAL */
   fab: {
     position: "absolute",
     right: 24,
@@ -272,33 +382,66 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#D1779F",
+    backgroundColor: "#d3c5cb",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 4,
+    elevation: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
+    zIndex: 11,
   },
   fabText: { color: "#fff", fontSize: 30, lineHeight: 32 },
-  fabRetroactive: {
+
+  /* MENU EM LEQUE */
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
+  },
+  fanItem: {
     position: "absolute",
     right: 24,
-    bottom: 180,
+    bottom: 110,
     width: 56,
     height: 56,
-    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  fanButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FAF0F5",
     borderWidth: 1,
-    borderColor: "#CE9DBB",
-    justifyContent: "center",
+    borderColor: "#eeeeee",
     alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  fanLabelBox: {
+    position: "absolute",
+    right: 64, // à esquerda do botão
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowRadius: 3,
   },
-  fabRetroactiveText: { fontSize: 20 },
+  fanLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9E7B92",
+    width: 150,
+    textAlign: "right",
+  },
 });

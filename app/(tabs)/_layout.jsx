@@ -19,6 +19,9 @@ const PAGE_TITLES = {
   "/Usuarios": "Usuários",
 };
 
+// Rotas que existem, mas não aparecem como botão na barra de navegação
+const HIDDEN_TABS = ["Usuarios"];
+
 const BREAKPOINTS = {
   xs: 360,
   sm: 400,
@@ -94,7 +97,9 @@ function CustomTabBar({ state, descriptors }) {
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
-        if (options.href === null) return null;
+        if (options.href === null || HIDDEN_TABS.includes(route.name)) {
+          return null;
+        }
         const isFocused = state.index === index;
 
         const onPress = () => {
@@ -117,7 +122,7 @@ function CustomTabBar({ state, descriptors }) {
             case "Clientes":
               return <Ionicons name={isFocused ? "people" : "people-outline"} size={iconSize} color={currentColor} />;
             case "Servicos":
-              return <Ionicons name={isFocused ? "briefcase" : "briefcase-outline"} size={iconSize} color={currentColor} />;
+              return <Ionicons name={isFocused ? "cut" : "cut-outline"} size={iconSize} color={currentColor} />;
             case "Financeiro":
               return (
                 <Text
@@ -134,8 +139,6 @@ function CustomTabBar({ state, descriptors }) {
                   $
                 </Text>
               );
-            case "Usuarios":
-              return <Ionicons name={isFocused ? "person-circle" : "person-circle-outline"} size={iconSize} color={currentColor} />;
             default:
               return null;
           }
@@ -193,7 +196,7 @@ const styles = StyleSheet.create({
   },
   tabBarFloating: {
     position: "absolute",
-    backgroundColor: "#ff6fc3",
+    backgroundColor: "#eeeeee",
     flexDirection: "row",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 6 },

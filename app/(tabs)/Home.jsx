@@ -1,3 +1,6 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
 import {
   View,
   Text,
@@ -8,9 +11,12 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Animated,
 } from "react-native";
-import { useState, useCallback } from "react";
-import { useFocusEffect } from "expo-router";
+import { useState, useCallback, useRef } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
 import { useAuth } from "../../src/hooks/useAuth";
 import { useHomeData } from "../../src/hooks/useHomeData";
 import { formatTime, formatWeekdayDate } from "../../src/utils/date";
@@ -20,6 +26,9 @@ import {
   cancelAppointment,
 } from "../../src/services/appointments";
 
+// ============================================================================
+// CONSTANTES
+// ============================================================================
 const { width } = Dimensions.get("window");
 
 const ROLE_LABELS = {
@@ -33,21 +42,42 @@ const PERIOD_OPTIONS = [
   { key: "MONTH", label: "Mês", title: "Agendamentos do Mês" },
 ];
 
+// ============================================================================
+// COMPONENTE
+// ============================================================================
 export default function Home() {
-  const [viewMode, setViewMode] = useState("WEEK");
-  const [periodOpen, setPeriodOpen] = useState(false);
+  // --------------------------------------------------------------------------
+  // Navegação
+  // --------------------------------------------------------------------------
+  const router = useRouter();
 
-  const { user, refetch: refetchAuth } = useAuth();
+  // --------------------------------------------------------------------------
+  // Dados (hooks)
+  // --------------------------------------------------------------------------
+  const [viewMode, setViewMode] = useState("WEEK");
+
+  const { user, refetch: refetchAuth, logout } = useAuth();
   const {
     nextAppointments = [],
     loading: dataLoading,
     refetch: refetchData,
   } = useHomeData(user?.role, viewMode);
 
+  // --------------------------------------------------------------------------
+  // Estados de interface
+  // --------------------------------------------------------------------------
+  const [periodOpen, setPeriodOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedApptToFinish, setSelectedApptToFinish] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Menu em leque
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnim = useRef(new Animated.Value(0)).current;
+
+  // --------------------------------------------------------------------------
+  // Efeitos e atualização
+  // --------------------------------------------------------------------------
   useFocusEffect(
     useCallback(() => {
       if (user?.role) {
@@ -62,6 +92,78 @@ export default function Home() {
     setRefreshing(false);
   }, [refetchAuth, refetchData]);
 
+  // --------------------------------------------------------------------------
+  // Handlers: menu em leque
+  // --------------------------------------------------------------------------
+  function toggleMenu() {
+    const toValue = menuOpen ? 0 : 1;
+    setMenuOpen(!menuOpen);
+    Animated.spring(menuAnim, {
+      toValue,
+      friction: 7,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+    Animated.timing(menuAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function goToUsers() {
+    closeMenu();
+    // Se o arquivo da tela em app/ tiver outro nome, ajuste a rota aqui
+    router.navigate("/Usuarios");
+    console.log("ok")
+  }
+
+  function handleLogout() {
+    closeMenu();
+    Alert.alert("Sair da conta", "Tem certeza que quer sair?", [
+      { text: "Voltar", style: "cancel" },
+      {
+        text: "Sair",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+          } finally {
+            router.replace("/login"); // ajuste para a rota da sua tela de login
+          }
+        },
+      },
+    ]);
+  }
+
+  // Posição final de cada botão do leque (relativa à engrenagem)
+  const FAN_ITEMS = [
+    {
+      key: "users",
+      icon: "people-outline",
+      label: "Usuários",
+      x: -55,
+      y: 0,
+      onPress: goToUsers,
+    },
+    {
+      key: "logout",
+      icon: "log-out-outline",
+      label: "Sair",
+      x: -25,
+      y: 52,
+      onPress: handleLogout,
+      danger: true,
+    },
+  ];
+
+  // --------------------------------------------------------------------------
+  // Handlers: agendamentos
+  // --------------------------------------------------------------------------
   async function handleConfirmFinish(id, paymentDetails) {
     Alert.alert(
       "Finalizar agendamento",
@@ -118,8 +220,14 @@ export default function Home() {
     );
   }
 
+  // --------------------------------------------------------------------------
+  // Valores derivados
+  // --------------------------------------------------------------------------
   const firstName = user?.name?.split(" ")[0] ?? "Usuário";
 
+  // --------------------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------------------
   return (
     <ScrollView
       style={{ backgroundColor: "#ffffff" }}
@@ -140,6 +248,74 @@ export default function Home() {
             {ROLE_LABELS[user.role] ?? user.role}
           </Text>
         )}
+
+        {/* Botões do leque (ficam atrás da engrenagem) */}
+        {FAN_ITEMS.map((item) => {
+          const translateX = menuAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, item.x],
+          });
+          const translateY = menuAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, item.y],
+          });
+          const scale = menuAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.3, 1],
+          });
+
+          return (
+            <Animated.View
+              key={item.key}
+              pointerEvents={menuOpen ? "auto" : "none"}
+              style={[
+                styles.fanItem,
+                {
+                  opacity: menuAnim,
+                  transform: [{ translateX }, { translateY }, { scale }],
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.fanButton,
+                  item.danger && styles.fanButtonDanger,
+                ]}
+                onPress={item.onPress}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={20}
+                  color={item.danger ? "#fff" : "#9E7B92"}
+                />
+              </TouchableOpacity>
+              <Text style={styles.fanLabel}>{item.label}</Text>
+            </Animated.View>
+          );
+        })}
+
+        {/* Engrenagem */}
+        <TouchableOpacity
+          style={styles.gearButton}
+          onPress={toggleMenu}
+          activeOpacity={0.8}
+        >
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: menuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0deg", "90deg"],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Ionicons name="settings-outline" size={22} color="#9E7B92" />
+          </Animated.View>
+        </TouchableOpacity>
       </View>
 
       {/* SEÇÃO: PRÓXIMOS AGENDAMENTOS */}
@@ -267,19 +443,28 @@ export default function Home() {
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
 const styles = StyleSheet.create({
+  /* CONTAINER */
   container: {
     flexGrow: 1,
     padding: width * 0.05,
     alignItems: "center",
   },
+
+  /* BOAS-VINDAS */
   welcomeBox: {
     width: "100%",
     maxWidth: 500,
     backgroundColor: "#f4c5e9",
     padding: 20,
+    paddingRight: 70, // espaço para a engrenagem
+    minHeight: 130, // mantém o leque dentro do painel (necessário para tocar no Android)
     borderRadius: 15,
     marginBottom: 20,
+    zIndex: 10,
   },
   title: {
     fontSize: 22,
@@ -293,6 +478,50 @@ const styles = StyleSheet.create({
     color: "#9E7B92",
     fontWeight: "600",
   },
+
+  /* MENU EM LEQUE */
+  gearButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  fanItem: {
+    position: "absolute",
+    top: 12,
+    right: 0,
+    width: 64,
+    alignItems: "center",
+    zIndex: 1,
+  },
+  fanButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  fanButtonDanger: { backgroundColor: "#FF6B6B" },
+  fanLabel: {
+    marginTop: 3,
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#9E7B92",
+  },
+
+  /* SEÇÃO DE AGENDAMENTOS */
   section: {
     width: "100%",
     maxWidth: 500,
@@ -311,6 +540,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#9E7B92",
   },
+
+  /* ESTADO VAZIO */
   emptyCard: {
     backgroundColor: "#fdfdfd",
     padding: 16,
@@ -323,6 +554,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#999",
   },
+
+  /* CARD DE AGENDAMENTO */
   appointmentCard: {
     backgroundColor: "#f9f9f9",
     borderRadius: 12,
@@ -368,6 +601,8 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 2,
   },
+
+  /* BOTÕES DE AÇÃO */
   actionsRow: {
     flexDirection: "row",
     gap: 10,

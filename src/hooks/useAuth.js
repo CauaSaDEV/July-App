@@ -1,14 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { getMe } from "../services/Auth";
+import { getMe, logout as logoutService } from "../services/Auth";
 
-/**
- * Hook para acessar os dados do usuário autenticado (nome, role, etc.)
- * sem depender do email.
- *
- * Uso:
- *   const { user, loading, error, refetch } = useAuth();
- *   user?.name, user?.role
- */
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,9 +20,14 @@ export function useAuth() {
     }
   }, []);
 
+  const logout = useCallback(async () => {
+    await logoutService();
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
-  return { user, loading, error, refetch: fetchUser };
+  return { user, loading, error, refetch: fetchUser, logout };
 }
