@@ -275,7 +275,7 @@ export default function Agendamentos() {
               onPress={item.onPress}
               activeOpacity={0.8}
             >
-              <Ionicons name={item.icon} size={22} color="#eeeeee" />
+              <Ionicons name={item.icon} size={22} color="#9E7B92" />
             </TouchableOpacity>
           </Animated.View>
         );
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#d3c5cb",
+    backgroundColor: "#D1779F",
     justifyContent: "center",
     alignItems: "center",
     elevation: 6,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: "#FAF0F5",
     borderWidth: 1,
-    borderColor: "#eeeeee",
+    borderColor: "#CE9DBB",
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
