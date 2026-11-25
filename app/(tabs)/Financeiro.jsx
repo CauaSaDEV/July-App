@@ -38,6 +38,7 @@ import {
   pluralize,
   sortDistribution,
 } from "../../src/utils/chartData";
+import TabSwitch from "../../src/components/TabSwitch";
 
 const { width } = Dimensions.get("window");
 
@@ -94,7 +95,7 @@ const PAGES = [
     valueTitle: "Quantidade",
   },
 
-    {
+  {
     key: "expenses",
     tab: "Despesas",
     title: "Despesas por Categoria",
@@ -104,8 +105,19 @@ const PAGES = [
     labelTitle: "Categoria",
     valueTitle: "Valor",
   },
-
 ];
+
+// NOVO: abas principais da tela
+const MAIN_TABS = [
+  { key: "carteira", label: "Carteira" },
+  { key: "despesas", label: "Despesas" },
+];
+
+// NOVO: o seletor de gráficos da Carteira não mostra mais "Despesas"
+// (o gráfico de despesas agora fica na aba Despesas).
+// "expenses" é o último item, então os índices 0..2 continuam iguais.
+const CARTEIRA_PAGES = PAGES.filter((p) => p.key !== "expenses");
+const EXPENSES_PAGE = PAGES.find((p) => p.key === "expenses");
 
 function notify(title, msg) {
   if (Platform.OS === "web") window.alert(`${title}\n${msg}`);
@@ -149,6 +161,9 @@ export default function Financeiro() {
 
   const [showValues, setShowValues] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
+
+  // NOVO: aba principal (abre em Carteira)
+  const [mainTab, setMainTab] = useState("carteira");
 
   // Modal nova despesa
   const [modalVisible, setModalVisible] = useState(false);
@@ -195,7 +210,6 @@ export default function Financeiro() {
 
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
-
       const start = new Date(year, month, 1, 0, 0, 0).toISOString();
       const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
@@ -220,17 +234,17 @@ export default function Financeiro() {
       setPaidRecords(
         Array.isArray(paidResponse)
           ? paidResponse.filter((r) => r?.paymentStatus === "PAID")
-          : []
+          : [],
       );
       setSummary(summaryResponse || null);
       setExpenseSummary(expSummaryResponse || null);
       setExpenseEntries(
-        Array.isArray(expEntriesResponse) ? expEntriesResponse : []
+        Array.isArray(expEntriesResponse) ? expEntriesResponse : [],
       );
     } catch (error) {
       console.log(
         "[Financeiro] Erro ao carregar financeiro:",
-        error?.response?.data || error
+        error?.response?.data || error,
       );
       setPaidRecords([]);
       setSummary(null);
@@ -244,7 +258,7 @@ export default function Financeiro() {
   useFocusEffect(
     useCallback(() => {
       loadFinance();
-    }, [loadFinance])
+    }, [loadFinance]),
   );
 
   async function handleRefresh() {
@@ -315,25 +329,24 @@ export default function Financeiro() {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [filteredPaidRecords]);
 
-const expensesChart = useMemo(() => {
-  const grouped = {};
-  expenseEntries
-    .filter((entry) => entry.paymentStatus !== "CANCELED")
-    .forEach((entry) => {
-      const label =
-        entry.category?.name || entry.categoryName || "Sem categoria";
-      grouped[label] =
-        (grouped[label] || 0) + Number(entry.total ?? entry.amount ?? 0);
-    });
+  const expensesChart = useMemo(() => {
+    const grouped = {};
+    expenseEntries
+      .filter((entry) => entry.paymentStatus !== "CANCELED")
+      .forEach((entry) => {
+        const label =
+          entry.category?.name || entry.categoryName || "Sem categoria";
+        grouped[label] =
+          (grouped[label] || 0) + Number(entry.total ?? entry.amount ?? 0);
+      });
 
-  const list = Object.entries(grouped).map(([label, value]) => ({
-    label,
-    value,
-  }));
+    const list = Object.entries(grouped).map(([label, value]) => ({
+      label,
+      value,
+    }));
 
-  return sortDistribution(list);
-}, [expenseEntries]);
-
+    return sortDistribution(list);
+  }, [expenseEntries]);
 
   const serviceChart = useMemo(() => {
     const grouped = {};
@@ -360,50 +373,51 @@ const expensesChart = useMemo(() => {
   }
 
   const countByStaffData = sortDistribution(
-    servicesByStaff.map((item) => ({ label: item.name, value: item.count }))
+    servicesByStaff.map((item) => ({ label: item.name, value: item.count })),
   );
 
   const amountByStaffData = sortDistribution(
-    staffChart.map((item) => ({ label: item.name, value: item.value }))
+    staffChart.map((item) => ({ label: item.name, value: item.value })),
   );
 
   const servicesData = sortDistribution(
-    serviceChart.map((item) => ({ label: item.name, value: item.count }))
+    serviceChart.map((item) => ({ label: item.name, value: item.count })),
   );
 
   const totalAmountSum = amountByStaffData.reduce(
     (sum, item) => sum + item.value,
-    0
+    0,
   );
 
-  const page = PAGES[pageIndex];
+  // ALTERADO: na aba Despesas usa sempre o gráfico de despesas;
+  // na Carteira usa o gráfico escolhido no seletor (atendimentos/valor/serviços)
+  const page =
+    mainTab === "despesas" ? EXPENSES_PAGE : CARTEIRA_PAGES[pageIndex];
 
- const pageProps = {
-  count: {
-    data: countByStaffData,
-    totalText: pluralize(totalServices, "atendimento", "atendimentos"),
-    integer: true,
-  },
-  amount: {
-    data: amountByStaffData,
-    totalText: displayValue(totalAmountSum),
-    formatValue: displayValue,
-    formatTick: displayTick,
-  },
-  service: {
-    data: servicesData,
-    totalText: pluralize(totalServices, "serviço", "serviços"),
-    integer: true,
-  },
-  expenses: {
-    data: expensesChart,
-    totalText: displayValue(totalExpenses),
-    formatValue: displayValue,
-    formatTick: displayTick,
-  },
-}[page.key];
-
-
+  const pageProps = {
+    count: {
+      data: countByStaffData,
+      totalText: pluralize(totalServices, "atendimento", "atendimentos"),
+      integer: true,
+    },
+    amount: {
+      data: amountByStaffData,
+      totalText: displayValue(totalAmountSum),
+      formatValue: displayValue,
+      formatTick: displayTick,
+    },
+    service: {
+      data: servicesData,
+      totalText: pluralize(totalServices, "serviço", "serviços"),
+      integer: true,
+    },
+    expenses: {
+      data: expensesChart,
+      totalText: displayValue(totalExpenses),
+      formatValue: displayValue,
+      formatTick: displayTick,
+    },
+  }[page.key];
 
   async function openExpenseModal() {
     setForm({
@@ -487,7 +501,7 @@ const expensesChart = useMemo(() => {
         {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Carteira</Text>
+            <Text style={styles.title}>Relatorio</Text>
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowValues((prev) => !prev)}
@@ -500,7 +514,6 @@ const expensesChart = useMemo(() => {
               />
             </TouchableOpacity>
           </View>
-        
 
           {/* NAVEGADOR DE MÊS */}
           <View style={styles.monthPicker}>
@@ -529,13 +542,22 @@ const expensesChart = useMemo(() => {
           </View>
         </View>
 
+        {/* NOVO: TROCA DE ABA CARTEIRA / DESPESAS */}
+        <View style={styles.mainTabWrap}>
+          <TabSwitch tabs={MAIN_TABS} value={mainTab} onChange={setMainTab} />
+        </View>
+
         {loading ? (
           <ActivityIndicator
             size="large"
             color={COLORS.primary}
             style={styles.loading}
           />
-        ) : (
+        ) : mainTab === "carteira" ? (
+          /* =====================================================
+           * ABA CARTEIRA (tudo que já existia, menos gráfico e
+           * seção de despesas)
+           * ===================================================== */
           <>
             {/* RECEBIDO / PENDENTE */}
             <View style={styles.cardsRow}>
@@ -564,9 +586,7 @@ const expensesChart = useMemo(() => {
               </View>
 
               <View style={styles.metricCard}>
-                <Text style={styles.metricTitle}>
-                  Saldo 
-                </Text>
+                <Text style={styles.metricTitle}>Saldo</Text>
                 <Text
                   style={[
                     styles.receivedValue,
@@ -613,9 +633,10 @@ const expensesChart = useMemo(() => {
                 bold
               />
             </View>
-            {/* SELETOR DAS 3 PÁGINAS */}
+
+            {/* SELETOR DAS 3 PÁGINAS (ALTERADO: sem "Despesas") */}
             <View style={styles.tabs}>
-              {PAGES.map((item, index) => {
+              {CARTEIRA_PAGES.map((item, index) => {
                 const selected = index === pageIndex;
                 return (
                   <TouchableOpacity
@@ -656,12 +677,39 @@ const expensesChart = useMemo(() => {
               {...pageProps}
             />
 
+            {/* PAGAMENTOS PENDENTES */}
+            <View style={[styles.section, { marginTop: 24 }]}>
+              <PendingPaymentsSection
+                refreshSignal={refreshing ? 1 : 0}
+                onChanged={loadFinance}
+              />
+            </View>
+
+            <View style={styles.bottomSpacer} />
+          </>
+        ) : (
+          /* =====================================================
+           * NOVO: ABA DESPESAS (gráfico + seção de despesas)
+           * ===================================================== */
+          <>
+            {/* GRÁFICO DE DESPESAS */}
+            <MetricPage
+              key={page.key}
+              title={page.title}
+              headerColor={page.headerColor}
+              barColor={page.barColor}
+              buttonColor={page.buttonColor}
+              labelTitle={page.labelTitle}
+              valueTitle={page.valueTitle}
+              periodLabel={periodLabel}
+              {...pageProps}
+            />
+
             {/* DESPESAS */}
             <View style={[styles.section, { marginTop: 24 }]}>
               <View style={styles.sectionHeaderRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sectionTitle}>Despesas</Text>
-
                 </View>
 
                 <TouchableOpacity
@@ -716,14 +764,6 @@ const expensesChart = useMemo(() => {
                   );
                 })
               )}
-            </View>
-
-            {/* PAGAMENTOS PENDENTES */}
-            <View style={styles.section}>
-              <PendingPaymentsSection
-                refreshSignal={refreshing ? 1 : 0}
-                onChanged={loadFinance}
-              />
             </View>
 
             <View style={styles.bottomSpacer} />
@@ -808,7 +848,10 @@ const expensesChart = useMemo(() => {
                     setForm((f) => ({ ...f, newCategory: t }))
                   }
                 />
-                <TouchableOpacity style={styles.newCatBtn} onPress={addCategory}>
+                <TouchableOpacity
+                  style={styles.newCatBtn}
+                  onPress={addCategory}
+                >
                   <Ionicons name="add" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -931,6 +974,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   subtitle: { fontSize: 13, color: COLORS.secondary, marginTop: 4 },
+
+  // NOVO: garante que o TabSwitch ocupe a largura toda
+  mainTabWrap: { width: "100%", maxWidth: 500 },
 
   monthPicker: {
     flexDirection: "row",

@@ -27,6 +27,7 @@ export default function SearchableList({
   refreshing,
   onRefresh,
   style,
+  belowSearch,
 }) {
   const [internalSearch, setInternalSearch] = useState("");
   const isControlled = typeof search === "string" && !!onSearchChange;
@@ -50,6 +51,8 @@ export default function SearchableList({
   return (
     <View style={[{ flex: 1 }, style]}>
       {/* Container da barra de busca com ícone */}
+
+
       <View style={styles.searchContainer}>
         <Ionicons
           name="search-outline"
@@ -66,6 +69,8 @@ export default function SearchableList({
         />
       </View>
 
+      {belowSearch}
+      
       {loading && displayedItems.length === 0 ? (
         <ActivityIndicator size="large" color="#CE9DBB" style={{ marginTop: 20 }} />
       ) : (

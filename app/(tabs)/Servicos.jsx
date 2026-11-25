@@ -7,6 +7,7 @@ import { formatCurrency } from "../../src/utils/date";
 import SearchableList from "../../src/components/SearchableList";
 import ServiceFormModal from "../../src/components/ServiceFormModal";
 import InactiveList from "../../src/components/InactiveList";
+import StatusToggle from "../../src/components/StatusToggle";
 
 export default function Servicos() {
   const { user } = useAuth();
@@ -16,7 +17,7 @@ export default function Servicos() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  
+
   // Controla se estamos vendo os ativos (false) ou o componente de inativos (true)
   const [showInactive, setShowInactive] = useState(false);
 
@@ -49,7 +50,7 @@ export default function Servicos() {
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -61,29 +62,19 @@ export default function Servicos() {
       label: s.name,
     }));
 
+  const statusToggle = (
+    <StatusToggle showInactive={showInactive} onChange={setShowInactive} />
+  );
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff", padding: 20, paddingBottom: 0 }}>
-      {/* Botões de Filtro para alternar entre Ativos e o seu componente de Inativos */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterButton, !showInactive && styles.filterButtonActive]}
-          onPress={() => setShowInactive(false)}
-        >
-          <Text style={[styles.filterText, !showInactive && styles.filterTextActive]}>
-            Ativos
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, showInactive && styles.filterButtonActive]}
-          onPress={() => setShowInactive(true)}
-        >
-          <Text style={[styles.filterText, showInactive && styles.filterTextActive]}>
-            Inativos
-          </Text>
-        </TouchableOpacity>
-      </View>
-
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#fff",
+        padding: 20,
+        paddingBottom: 0,
+      }}
+    >
       {/* Se showInactive for true, renderiza O SEU COMPONENTE */}
       {showInactive ? (
         <InactiveList
@@ -94,6 +85,7 @@ export default function Servicos() {
           onRefresh={refetch}
           onEdit={openEdit}
           isManager={isManager}
+          belowSearch={statusToggle}
         />
       ) : (
         <SearchableList
@@ -107,7 +99,12 @@ export default function Servicos() {
           keyExtractor={(item) => item.id}
           refreshing={loading}
           onRefresh={refetch}
-          emptyText={query ? "Nenhum serviço encontrado." : "Nenhum serviço ativo cadastrado."}
+          belowSearch={statusToggle}
+          emptyText={
+            query
+              ? "Nenhum serviço encontrado."
+              : "Nenhum serviço ativo cadastrado."
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.row}
@@ -119,7 +116,8 @@ export default function Servicos() {
                   <Text style={styles.name}>{item.name}</Text>
                 </View>
                 <Text style={styles.detail}>
-                  {formatCurrency(item.defaultPrice)} · {item.durationMinutes} min
+                  {formatCurrency(item.defaultPrice)} · {item.durationMinutes}{" "}
+                  min
                 </Text>
               </View>
 
@@ -153,27 +151,52 @@ export default function Servicos() {
 }
 
 const styles = StyleSheet.create({
-  filterRow: {
+  dropdownContainer: {
+    marginBottom: 12,
+    zIndex: 10,
+  },
+  dropdownButton: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-  },
-  filterButton: {
-    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#f2f2f2",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
   },
-  filterButtonActive: {
-    backgroundColor: "#D1779F",
-  },
-  filterText: {
-    fontSize: 13,
+  dropdownButtonText: {
+    fontSize: 16,
     fontWeight: "600",
+    color: "#222",
+  },
+  dropdownArrow: {
+    fontSize: 12,
     color: "#666",
   },
-  filterTextActive: {
-    color: "#fff",
+  dropdownMenu: {
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dropdownItemActive: {
+    backgroundColor: "#f0f0f0",
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: "#444",
+  },
+  dropdownItemTextActive: {
+    fontWeight: "700",
+    color: "#000",
   },
   row: {
     flexDirection: "row",

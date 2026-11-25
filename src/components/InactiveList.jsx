@@ -11,6 +11,7 @@ export default function InactiveList({
   onRefresh,
   onEdit,
   isManager = false,
+  belowSearch,
 }) {
   // Filtra apenas os serviços onde active é false
   const inactiveItems = services
@@ -53,6 +54,7 @@ export default function InactiveList({
       keyExtractor={(item) => item.id}
       refreshing={loading}
       onRefresh={onRefresh}
+      belowSearch={belowSearch}
       emptyText={
         query
           ? "Nenhum serviço inativo encontrado."
